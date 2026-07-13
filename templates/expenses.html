@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Monthly Expenses</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; background: #f7f7f8; }
+        h1 { font-size: 20px; }
+        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        select { padding: 8px; min-width: 300px; }
+        .stat { display: inline-block; margin-right: 30px; font-size: 14px; }
+        .stat b { font-size: 18px; display: block; }
+        a { color: #e01b22; text-decoration: none; }
+        .hint { font-size: 12px; color: #666; }
+        button { padding: 6px 12px; background: #e01b22; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <p><a href="/">&larr; Back</a></p>
+    <h1>Monthly Expenses</h1>
+
+    <div class="card">
+        <label for="store-select">Filter by store(s):</label>
+        <p class="hint">Ctrl/Cmd-click (or Shift-click) to select multiple. All stores selected by default.</p>
+        <select id="store-select" multiple size="6" onchange="loadData()"></select>
+        <br>
+        <button onclick="selectAll()">Select All</button>
+    </div>
+
+    <div class="card" id="stats-card" style="display:none;">
+        <div class="stat"><span>Total spend</span><b id="stat-total">-</b></div>
+        <div class="stat"><span>Months tracked</span><b id="stat-months">-</b></div>
+        <div class="stat"><span>Average per month</span><b id="stat-avg">-</b></div>
+    </div>
+
+    <div class="card" id="chart-card" style="display:none;">
+        <canvas id="expenseChart" height="120"></canvas>
+    </div>
+
+    <div class="card" id="empty-card">
+        <p>Loading stores...</p>
+    </div>
+
+    <script>
+        let chart = null;
+
+        async function init() {
+            const res = await fetch('/expenses/stores');
+            const stores = await res.json();
+            const select = document.getElementById('store-select');
+            select.innerHTML = '';
+            stores.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.store_key;
+                opt.textContent = s.store_name;
+                opt.selected = true;
+                select.appendChild(opt);
+            });
+            if (stores.length === 0) {
+                document.getElementById('empty-card').innerHTML = '<p>No stores with processed receipts yet.</p>';
+                return;
+            }
+            loadData();
+        }
+
+        function selectAll() {
+            const select = document.getElementById('store-select');
+            Array.from(select.options).forEach(o => o.selected = true);
+            loadData();
+        }
+
+        async function loadData() {
+            const select = document.getElementById('store-select');
+            const selected = Array.from(select.selectedOptions).map(o => o.value);
+
+            if (selected.length === 0) {
+                document.getElementById('chart-card').style.display = 'none';
+                document.getElementById('stats-card').style.display = 'none';
+                document.getElementById('empty-card').style.display = 'block';
+                document.getElementById('empty-card').innerHTML = '<p>Select at least one store above.</p>';
+                return;
+            }
+
+            const params = new URLSearchParams();
+            selected.forEach(s => params.append('store', s));
+            const res = await fetch('/expenses/data?' + params.toString());
+            const data = await res.json();
+
+            if (data.labels.length === 0) {
+                document.getElementById('chart-card').style.display = 'none';
+                document.getElementById('stats-card').style.display = 'none';
+                document.getElementById('empty-card').style.display = 'block';
+                document.getElementById('empty-card').innerHTML = '<p>No dated receipts found for the selected store(s).</p>';
+                return;
+            }
+
+            document.getElementById('empty-card').style.display = 'none';
+            document.getElementById('stats-card').style.display = 'block';
+            document.getElementById('chart-card').style.display = 'block';
+            document.getElementById('stat-total').textContent = '$' + data.total_spend.toFixed(2);
+            document.getElementById('stat-months').textContent = data.month_count;
+            document.getElementById('stat-avg').textContent = '$' + data.avg_monthly.toFixed(2);
+
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Monthly spend ($)',
+                        data: data.totals,
+                        backgroundColor: '#e01b22',
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

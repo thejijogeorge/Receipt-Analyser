@@ -402,5 +402,64 @@ def giftcards(store_key):
     return render_template("giftcards.html", cards=cards, filter_val=filter_val, store_key=store_key, store_name=store_name)
 
 
+@app.route("/expenses")
+def expenses():
+    return render_template("expenses.html")
+
+
+@app.route("/expenses/stores")
+def expenses_stores():
+    session = get_session()
+    stores = (
+        session.query(Receipt.store_key, Receipt.store_name)
+        .filter(Receipt.store_name.isnot(None))
+        .distinct()
+        .order_by(Receipt.store_name)
+        .all()
+    )
+    session.close()
+    return jsonify([{"store_key": k, "store_name": n} for k, n in stores])
+
+
+@app.route("/expenses/data")
+def expenses_data():
+    selected_stores = request.args.getlist("store")
+    session = get_session()
+
+    q = (
+        session.query(Receipt.receipt_date, ReceiptItem.line_total)
+        .join(ReceiptItem, ReceiptItem.receipt_id == Receipt.id)
+        .filter(Receipt.receipt_date.isnot(None))
+    )
+    if selected_stores:
+        q = q.filter(Receipt.store_key.in_(selected_stores))
+
+    rows = q.all()
+    session.close()
+
+    # aggregate by (year, month) in Python rather than via DB-specific date
+    # truncation functions, so this works identically whether the DB is
+    # SQL Server or Postgres
+    monthly = {}
+    for receipt_date, line_total in rows:
+        key = (receipt_date.year, receipt_date.month)
+        monthly[key] = monthly.get(key, 0) + (line_total or 0)
+
+    sorted_keys = sorted(monthly.keys())
+    labels = [f"{y}-{m:02d}" for y, m in sorted_keys]
+    totals = [round(monthly[k], 2) for k in sorted_keys]
+
+    total_spend = round(sum(totals), 2)
+    avg_monthly = round(total_spend / len(totals), 2) if totals else 0
+
+    return jsonify({
+        "labels": labels,
+        "totals": totals,
+        "total_spend": total_spend,
+        "avg_monthly": avg_monthly,
+        "month_count": len(totals),
+    })
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)

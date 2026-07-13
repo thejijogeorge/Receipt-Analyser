@@ -3,7 +3,7 @@ version: "3.8"
 services:
   receipt-analyser:
     build: .
-    image: thejijogeorge/receipt-analyser:1.1.0
+    image: thejijogeorge/receipt-analyser:latest
     container_name: receipt-analyser
     ports:
       - "5050:5000"
