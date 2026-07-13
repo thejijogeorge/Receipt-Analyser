@@ -1,7 +1,7 @@
 import os
 import glob
 import subprocess
-from datetime import datetime
+from datetime import datetime, date
 from flask import Flask, render_template, request, jsonify
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -45,10 +45,36 @@ def process_folder(folder):
 
     session = get_session()
 
+    # Parse every file first, then apply them to the DB in chronological
+    # order (by the receipt's own date), not filename order. This matters
+    # because gift card balances (and other date-dependent state) must be
+    # applied in true time order -- e.g. "14_feb_2026.pdf" sorts before
+    # "7_Feb_2026.pdf" alphabetically despite being the later receipt,
+    # which would otherwise leave a stale/wrong balance stored after a
+    # batch run.
+    parsed_files = []
     for receipt_path in receipt_paths:
         filename = os.path.basename(receipt_path)
         try:
             parsed = parse_receipt(receipt_path)
+            parsed_files.append({"path": receipt_path, "filename": filename, "parsed": parsed, "parse_error": None})
+        except Exception as e:
+            parsed_files.append({"path": receipt_path, "filename": filename, "parsed": None, "parse_error": str(e)})
+
+    def sort_key(entry):
+        parsed = entry["parsed"]
+        if parsed and parsed.get("receipt_date"):
+            return (0, parsed["receipt_date"])
+        return (1, date.max)  # undated or failed-to-parse -- process last
+
+    parsed_files.sort(key=sort_key)
+
+    for entry in parsed_files:
+        filename = entry["filename"]
+        try:
+            if entry["parse_error"]:
+                raise Exception(entry["parse_error"])
+            parsed = entry["parsed"]
 
             receipt = Receipt(
                 filename=filename,
