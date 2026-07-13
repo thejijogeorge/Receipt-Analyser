@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16
+    container_name: receipt-analyser-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - receipt-analyser-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  receipt-analyser:
+    build: .
+    image: thejijogeorge/receipt-analyser:2.0.0
+    container_name: receipt-analyser
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "5050:5000"
+    env_file:
+      - .env
+    environment:
+      RCLONE_REMOTE: "gdrive:Receipt_Analyser"
+      RECEIPTS_FOLDER: "/receipts"
+    volumes:
+      # Host folder containing your receipt PDFs -> mounted at /receipts in the container.
+      # In the app UI, enter "/receipts" as the folder path. This same folder is
+      # also where "Sync from Google Drive" downloads new files to.
+      - /home/jijo/receipt-analyser/receipts:/receipts
+      # rclone's OAuth config, created on the host via `rclone config` -- mounted
+      # read-only so the container can authenticate to Google Drive.
+      - /home/jijo/.config/rclone:/root/.config/rclone:ro
+    restart: unless-stopped
+
+volumes:
+  receipt-analyser-db-data:

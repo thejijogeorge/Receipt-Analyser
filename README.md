@@ -2,25 +2,84 @@
 
 Parses receipts (PDF and photographed/scanned images) from multiple stores
 -- Coles, Woolworths, JB Hi-Fi, Kmart, Ambeys, and any new store you add --
-and saves items, prices, dates, and gift card balances into an external
-SQL Server database. Includes per-store item price analytics and gift
-card balance tracking.
+and saves items, prices, dates, and gift card balances into a database.
+Includes per-store item price analytics and gift card balance tracking.
+
+By default the project connects to an external SQL Server database. If
+you'd rather not manage a separate SQL Server instance, see **Section 2**
+for a Postgres alternative that runs entirely inside Docker alongside the
+app -- no external database required.
 
 ---
 
 ## 1. Prerequisites
 
-- Docker + Docker Compose installed on the homelab server (`192.168.50.226`)
-- An existing SQL Server database (`ExpenseAnalyser`) already created via
-  SQL Server Management Studio, reachable from the server
+- Docker + Docker Compose installed on the homelab server
+- A database to connect to -- either:
+  - An existing SQL Server database already created via SQL Server
+    Management Studio, reachable from the server (default setup), **or**
+  - Nothing extra -- if using the Postgres alternative, Docker Compose
+    creates and manages the database for you (see Section 2)
 - (Optional, for Google Drive sync) A Google account with a Drive folder
-  containing your receipt PDFs
+  containing your receipt files
 
 ---
 
-## 2. One-time setup on the homelab server
+## 2. Database options
 
-### 2.1 Get the project onto the server
+### Option A: External SQL Server (default)
+
+This is what the root-level `Dockerfile`, `docker-compose.yml`,
+`requirements.txt`, and `.env.example` are set up for. Continue to
+Section 3 below.
+
+### Option B: Postgres inside Docker (no external database needed)
+
+A `With Postgres` folder in this repo contains 4 files that replace their
+root-level equivalents:
+
+```
+With Postgres/
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── .env.example
+```
+
+What's different with this option:
+
+- `docker-compose.yml` defines two services instead of one: `db`
+  (Postgres 16) and `receipt-analyser` (the app). Postgres's data is
+  stored in a named Docker volume, so it persists across container
+  restarts independently of the containers themselves.
+- `requirements.txt` uses `psycopg2-binary` instead of `pyodbc`.
+- `Dockerfile` is simpler -- the entire SQL Server ODBC driver
+  installation block is removed, since Postgres doesn't need it.
+- `.env.example` uses a Postgres-style connection string:
+  ```
+  DATABASE_URL=postgresql+psycopg2://receiptapp:YOUR_PASSWORD@db:5432/receiptanalyser
+  ```
+  `db` is the Postgres service name in `docker-compose.yml` -- Docker's
+  internal networking resolves it automatically, no IP address or
+  externally reachable database needed.
+
+**To use this option:** copy the 4 files out of `With Postgres/` into the
+project root, overwriting the SQL Server versions, then continue with the
+rest of this README as normal -- steps 3.3 onward, and Sections 4-8, work
+identically regardless of which database you chose. Only `.env`'s
+`DATABASE_URL` format and the two database-specific files listed above
+differ between the options.
+
+**Nothing in `app.py`, `models.py`, or the Alembic migrations needs to
+change either way** -- they talk to the database through SQLAlchemy's
+abstraction layer, not raw SQL Server or Postgres syntax, so they don't
+know or care which engine is actually underneath.
+
+---
+
+## 3. One-time setup on the homelab server
+
+### 3.1 Get the project onto the server
 
 SSH into the server first:
 
@@ -38,16 +97,19 @@ git clone https://github.com/thejijogeorge/receipt-analyser.git
 cd receipt-analyser
 ```
 
-### 2.2 Configure the database connection
+If using the Postgres option, copy the 4 files from `With Postgres/` into
+the project root now (see Section 2).
 
-Copy the example env file and fill in your real password:
+### 3.2 Configure the database connection
+
+Copy the example env file and fill in your real values:
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-`.env` should look like:
+**If using SQL Server (default `.env.example`):**
 
 ```
 DATABASE_URL=mssql+pyodbc://sa:YOUR_URL_ENCODED_PASSWORD@192.168.50.58:1433/ExpenseAnalyser?driver=ODBC+Driver+17+for+SQL+Server
@@ -64,7 +126,20 @@ parsed incorrectly. Common ones:
 | `/`       | `%2F`   |
 | `#`       | `%23`   |
 
-### 2.3 Set up the receipts folder
+**If using Postgres (`.env.example` from `With Postgres/`):**
+
+```
+POSTGRES_USER=receiptapp
+POSTGRES_PASSWORD=YOUR_PASSWORD
+POSTGRES_DB=receiptanalyser
+DATABASE_URL=postgresql+psycopg2://receiptapp:YOUR_PASSWORD@db:5432/receiptanalyser
+```
+
+Note `POSTGRES_PASSWORD` and the password inside `DATABASE_URL` must
+match -- the former initializes the Postgres container, the latter is
+what the app uses to connect to it.
+
+### 3.3 Set up the receipts folder
 
 This is where receipt files (PDF, JPG, PNG) need to live for the app to
 find them — either dropped in manually, or synced there automatically
@@ -80,7 +155,7 @@ Confirm it's there and currently empty:
 ls ~/receipt-analyser/receipts
 ```
 
-### 2.4 (Optional) Set up Google Drive sync
+### 3.4 (Optional) Set up Google Drive sync
 
 If you want the "Sync from Google Drive & Process" button to work:
 
@@ -120,13 +195,13 @@ If you want the "Sync from Google Drive & Process" button to work:
    Replace `Receipt_Analyser` with whatever your actual Drive folder is
    called. This should list the receipt files sitting in that folder. If
    it errors with "didn't find section in config file", the remote name
-   doesn't match what's in `docker-compose.yml` -- see 2.5.
+   doesn't match what's in `docker-compose.yml` -- see 3.5.
 4. If your remote/folder name differs from `gdrive:Receipt_Analyser`,
    update the `RCLONE_REMOTE` value in `docker-compose.yml` to match.
 
-### 2.5 Edit `docker-compose.yml` for this server
+### 3.5 Edit `docker-compose.yml` for this server
 
-Update the receipts volume path to the folder you created in step 2.3,
+Update the receipts volume path to the folder you created in step 3.3,
 and the rclone config path to your actual home directory:
 
 ```yaml
@@ -144,7 +219,7 @@ user is in the `docker` group, you shouldn't need `sudo` at all --
 
 ---
 
-## 3. Build and run
+## 4. Build and run
 
 **Option A -- build the image on the server** (works from source, no
 Docker Hub push needed first):
@@ -153,8 +228,9 @@ Docker Hub push needed first):
 docker compose up -d --build
 ```
 
-First build takes a few minutes (installing the SQL Server ODBC driver,
-tesseract-ocr, and rclone inside the image).
+First build takes a few minutes (installing tesseract-ocr and rclone
+inside the image -- plus the SQL Server ODBC driver, if using that
+option).
 
 **Option B -- pull the pre-built image instead** (faster, if you've
 already pushed it from Windows via `docker push thejijogeorge/receipt-analyser:latest`):
@@ -176,12 +252,12 @@ You should see: database connection succeed → Alembic migrations run →
 Flask server starts. Then open:
 
 ```
-http://192.168.50.226:5050
+http://<server_ip>:5050
 ```
 
 ---
 
-## 4. Using the app
+## 5. Using the app
 
 - **Process from a folder**: enter `/receipts` (the in-container path) and
   hit Process. It reads every PDF, JPG, and PNG in that folder.
@@ -211,7 +287,7 @@ receipts (matched by filename) are skipped, not duplicated.
 
 ---
 
-## 5. Updating the app after code changes
+## 6. Updating the app after code changes
 
 ```bash
 docker compose down
@@ -223,25 +299,26 @@ DB schema changes apply themselves — no manual SQL needed.
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
-| `Login timeout expired` / `server not found` | Wrong port syntax — use `:1433` not `,1433` in `DATABASE_URL` |
+| `Login timeout expired` / `server not found` | (SQL Server) Wrong port syntax — use `:1433` not `,1433` in `DATABASE_URL` |
 | `Cannot open database "X" requested by the login` | `.env`'s `DATABASE_URL` still points at the old DB name after a rename — update it to match |
 | `Invalid object name 'receipts'` | Migrations haven't run — check `docker compose logs` for Alembic errors, or the container never started |
-| Connection works in SSMS but not from the app | Password has an unencoded special character (see table in 2.2) |
+| Connection works in SSMS but not from the app | (SQL Server) Password has an unencoded special character (see table in 3.2) |
 | "Folder not found" | You're using a Windows-style path where a container path (`/receipts`) is expected, or the volume isn't mounted |
-| `apt-key: not found` / GPG signature errors during build | Base image drifted to a newer Debian release — `Dockerfile` pins `python:3.12-slim-bookworm` explicitly to avoid this; don't change it back to the floating `python:3.12-slim` tag |
+| `apt-key: not found` / GPG signature errors during build | (SQL Server option only) Base image drifted to a newer Debian release — `Dockerfile` pins `python:3.12-slim-bookworm` explicitly to avoid this; don't change it back to the floating `python:3.12-slim` tag |
 | `None of the supported tools for extracting zip archives were found` during build | Missing `unzip`, needed by rclone's install script — already added to the Dockerfile's package list |
-| `rclone sync failed: ... didn't find section in config file ("gdrive")` | The rclone config volume mount used `~` which resolved to the wrong home directory (e.g. `/root` under `sudo`) — use the full explicit path instead, e.g. `/home/jijo/.config/rclone:/root/.config/rclone:ro` |
+| `rclone sync failed: ... didn't find section in config file ("gdrive")` | The rclone config volume mount used `~` which resolved to the wrong home directory (e.g. `/root` under `sudo`) — use the full explicit path instead, e.g. `/home/YOUR_USERNAME/.config/rclone:/root/.config/rclone:ro` |
 | Container name conflict on `docker compose up` | A stale container from a previous run still holds that name — `docker rm -f <name>` first |
+| (Postgres) App container exits immediately or can't connect to `db` | Check `POSTGRES_PASSWORD` in `.env` matches the password inside `DATABASE_URL` exactly, and that both files came from the `With Postgres/` folder, not mixed with the SQL Server versions |
 | Gift card balance shows for a declined transaction | Shouldn't happen — declined attempts are filtered out during parsing; report the receipt if you see this |
 | Item names look garbled on a photographed receipt | Expected — OCR isn't perfect on phone photos. Prices/quantities are still accurate; use "Confirm item names" to clean up the display name once |
 
 ---
 
-## 7. Project structure
+## 8. Project structure
 
 ```
 receipt_analyser/
@@ -260,6 +337,11 @@ receipt_analyser/
 │   └── utils.py                 # shared helpers (e.g. dash-delimited block splitting)
 ├── alembic/                    # DB migrations
 ├── templates/                   # HTML/HTMX pages
+├── With Postgres/                # drop-in replacements for a Dockerized Postgres DB
+│   ├── Dockerfile                  # instead of the SQL Server ODBC setup
+│   ├── docker-compose.yml           # adds a "db" (Postgres) service
+│   ├── requirements.txt              # psycopg2-binary instead of pyodbc
+│   └── .env.example                   # Postgres-style DATABASE_URL
 ├── Dockerfile
 ├── docker-compose.yml
 ├── entrypoint.sh                # wait-for-db + migrate + run
