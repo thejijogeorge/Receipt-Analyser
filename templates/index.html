@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Receipt Analyser</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.9.10/htmx.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; background: #f7f7f8; }
+        h1 { font-size: 20px; }
+        h2 { font-size: 16px; }
+        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        input[type=text] { width: 70%; padding: 8px; }
+        button { padding: 8px 16px; background: #e01b22; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .ok { color: #1a7f37; }
+        .error { color: #cf222e; }
+        .skipped { color: #9a6700; }
+        a { color: #e01b22; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <h1>Receipt Analyser</h1>
+
+    {% if stores %}
+    <div class="card">
+        <h2>Stores</h2>
+        <table>
+            <tr><th>Store</th><th></th><th></th></tr>
+            {% for store_key, store_name in stores %}
+            <tr>
+                <td>{{ store_name }}</td>
+                <td><a href="/analytics/{{ store_key }}">Item Analytics</a></td>
+                <td><a href="/giftcards/{{ store_key }}">Gift Cards</a></td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <form hx-post="/process" hx-target="#results" hx-swap="innerHTML">
+            <label for="folder">Folder path (inside container, e.g. /receipts):</label><br><br>
+            <input type="text" id="folder" name="folder" placeholder="/receipts" required>
+            <button type="submit">Process</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <p>Or sync new receipts down from Google Drive first, then process them:</p>
+        <form hx-post="/sync-drive" hx-target="#results" hx-swap="innerHTML">
+            <button type="submit">Sync from Google Drive &amp; Process</button>
+        </form>
+    </div>
+
+    <div id="results">
+        {% if results is not none %}{% include "_results.html" %}{% endif %}
+    </div>
+</body>
+</html>

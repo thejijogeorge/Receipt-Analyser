@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Gift Cards</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; background: #f7f7f8; }
+        h1 { font-size: 20px; }
+        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        input[type=text] { padding: 8px; }
+        button { padding: 8px 16px; background: #e01b22; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+        a { color: #e01b22; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <p><a href="/">&larr; Back</a> | <a href="/analytics/{{ store_key }}">Item Analytics</a></p>
+    <h1>{{ store_name }} - Gift Cards</h1>
+
+    <div class="card">
+        <form method="get" action="/giftcards/{{ store_key }}">
+            <label for="last_four">Filter by card digits:</label><br><br>
+            <input type="text" id="last_four" name="last_four" value="{{ filter_val }}" maxlength="30">
+            <button type="submit">Filter</button>
+        </form>
+    </div>
+
+    <div class="card">
+        {% if cards %}
+        <table>
+            <tr><th>Card</th><th>Remaining balance</th><th>Amount redeemed (last seen)</th><th>Last seen on</th><th>Last updated</th></tr>
+            {% for c in cards %}
+            <tr>
+                <td>**** {{ c.last_four }}</td>
+                <td>{{ "$%.2f"|format(c.balance) if c.balance is not none else "n/a" }}</td>
+                <td>{{ "$%.2f"|format(c.amount_redeemed) if c.amount_redeemed is not none else "n/a" }}</td>
+                <td>{{ c.last_receipt_filename }}</td>
+                <td>{{ c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else "" }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>No gift cards tracked yet for {{ store_name }}.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

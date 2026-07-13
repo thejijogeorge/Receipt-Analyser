@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Item Analytics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; background: #f7f7f8; }
+        h1 { font-size: 20px; }
+        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        select { padding: 8px; min-width: 300px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 14px; }
+        a { color: #e01b22; text-decoration: none; }
+        .hint { font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <p><a href="/">&larr; Back</a> | <a href="/giftcards/{{ store_key }}">Gift Cards</a></p>
+    <h1>{{ store_name }} - Item Analytics</h1>
+
+    <div class="card">
+        <label for="item-select">Select item(s):</label>
+        <p class="hint">Ctrl/Cmd-click (or Shift-click) to select multiple.</p>
+        <select id="item-select" multiple size="8" onchange="loadData()">
+        </select>
+    </div>
+
+    <div class="card" id="stats-card" style="display:none;">
+        <table id="stats-table">
+            <tr><th>Item</th><th>Purchases</th><th>Avg days between purchases</th></tr>
+        </table>
+    </div>
+
+    <div class="card" id="chart-card" style="display:none;">
+        <canvas id="priceChart" height="120"></canvas>
+    </div>
+
+    <div class="card" id="empty-card">
+        <p>Pick one or more items above to see price history over time.</p>
+    </div>
+
+    <script>
+        let chart = null;
+        const colors = ['#e01b22', '#1a7f37', '#0969da', '#9a6700', '#8250df', '#bf3989', '#0a7ea4', '#cf222e'];
+
+        const storeKey = "{{ store_key }}";
+
+        async function init() {
+            const res = await fetch('/analytics/' + storeKey + '/items');
+            const items = await res.json();
+            const select = document.getElementById('item-select');
+            items.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                select.appendChild(opt);
+            });
+        }
+
+        async function loadData() {
+            const select = document.getElementById('item-select');
+            const selected = Array.from(select.selectedOptions).map(o => o.value);
+
+            if (selected.length === 0) {
+                document.getElementById('chart-card').style.display = 'none';
+                document.getElementById('stats-card').style.display = 'none';
+                document.getElementById('empty-card').style.display = 'block';
+                return;
+            }
+
+            const params = new URLSearchParams();
+            selected.forEach(item => params.append('item', item));
+            const res = await fetch('/analytics/' + storeKey + '/data?' + params.toString());
+            const data = await res.json();
+
+            document.getElementById('empty-card').style.display = 'none';
+            document.getElementById('stats-card').style.display = 'block';
+            document.getElementById('chart-card').style.display = 'block';
+
+            const statsTable = document.getElementById('stats-table');
+            statsTable.innerHTML = '<tr><th>Item</th><th>Purchases</th><th>Avg days between purchases</th></tr>';
+            data.series.forEach(s => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${s.item}</td><td>${s.purchase_count}</td><td>${s.avg_days_between !== null ? s.avg_days_between : 'n/a'}</td>`;
+                statsTable.appendChild(row);
+            });
+
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: data.series.map((s, i) => ({
+                        label: s.item + ' - unit price ($)',
+                        data: s.data,
+                        borderColor: colors[i % colors.length],
+                        backgroundColor: colors[i % colors.length] + '20',
+                        spanGaps: true,
+                        tension: 0.2,
+                    }))
+                },
+                options: {
+                    scales: { y: { beginAtZero: false } }
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

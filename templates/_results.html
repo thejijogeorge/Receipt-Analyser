@@ -1,0 +1,102 @@
+{% if results %}
+<div class="card">
+    <h3>Results</h3>
+    <table>
+        <tr><th>File</th><th>Date</th><th>Status</th><th>Detail</th></tr>
+        {% for r in results %}
+        <tr>
+            <td>{{ r.filename }}</td>
+            <td>{{ r.date }}</td>
+            <td class="{{ r.status }}">{{ r.status }}</td>
+            <td>{{ r.detail }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endif %}
+
+{% if stores_to_name %}
+<div class="card">
+    <h3>Name unrecognized store(s)</h3>
+    <p style="font-size:13px;color:#666;">
+        These receipts didn't match a known store format. Give each one a name --
+        it'll apply to every past and future receipt from the same store.
+    </p>
+    <form hx-post="/save-store-names" hx-target="#stores-saved" hx-swap="innerHTML">
+        <table>
+            <tr><th>Detected text</th><th>Store name</th></tr>
+            {% for s in stores_to_name %}
+            <tr>
+                <td>
+                    {{ s.detected_name }}
+                    <input type="hidden" name="store_key" value="{{ s.store_key }}">
+                    <input type="hidden" name="detected_name_{{ s.store_key }}" value="{{ s.detected_name }}">
+                </td>
+                <td>
+                    <input type="text" name="store_name_{{ s.store_key }}" placeholder="{{ s.detected_name }}">
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <br>
+        <button type="submit">Save Store Names</button>
+    </form>
+    <div id="stores-saved"></div>
+</div>
+{% endif %}
+
+{% if giftcards_to_confirm %}
+<div class="card">
+    <h3>New gift card(s) detected</h3>
+    <p style="font-size:13px;color:#666;">
+        This store's receipts only show the amount redeemed, not the remaining balance.
+        Enter what the card's balance was <em>before</em> this transaction (its starting/loaded
+        amount, or its last known balance) and we'll work out what's left. Leave blank to
+        skip for now -- it'll keep asking until answered.
+    </p>
+    <form hx-post="/confirm-giftcard-initial" hx-target="#giftcards-saved" hx-swap="innerHTML">
+        <table>
+            <tr><th>Card</th><th>Redeemed so far (unconfirmed)</th><th>Balance before this transaction</th></tr>
+            {% for gc in giftcards_to_confirm %}
+            <tr>
+                <td>**** {{ gc.last_four }}</td>
+                <td>${{ "%.2f"|format(gc.pending_redeemed) }}</td>
+                <td>
+                    <input type="hidden" name="gift_card_id" value="{{ gc.id }}">
+                    <input type="text" name="initial_amount_{{ gc.id }}" placeholder="e.g. 50.00">
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <br>
+        <button type="submit">Save Starting Balance(s)</button>
+    </form>
+    <div id="giftcards-saved"></div>
+</div>
+{% endif %}
+
+{% if items_to_name %}
+<div class="card">
+    <h3>Confirm item names</h3>
+    <p style="font-size:13px;color:#666;">Leave blank to keep the receipt's original item name.</p>
+    <form hx-post="/save-names" hx-target="#names-saved" hx-swap="innerHTML">
+        <table>
+            <tr><th>Item on receipt</th><th>Real name</th></tr>
+            {% for item in items_to_name %}
+            <tr>
+                <td>
+                    {{ item.item_name }}
+                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                </td>
+                <td>
+                    <input type="text" name="real_name_{{ item.id }}" placeholder="{{ item.item_name }}">
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+        <br>
+        <button type="submit">Save Names</button>
+    </form>
+    <div id="names-saved"></div>
+</div>
+{% endif %}

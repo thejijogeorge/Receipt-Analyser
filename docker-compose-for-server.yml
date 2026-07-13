@@ -1,0 +1,21 @@
+services:
+  receipt-analyser:
+    image: thejijogeorge/receipt-analyser:latest
+    container_name: receipt-analyser
+    ports:
+      - "5050:5000"
+    env_file:
+      - .env
+    environment:
+      RCLONE_REMOTE: "gdrive:Receipt_Analyser"
+      RECEIPTS_FOLDER: "/receipts"
+    volumes:
+      # Host folder containing your receipt PDFs -> mounted at /receipts in the container.
+      # In the app UI, enter "/receipts" as the folder path. This same folder is
+      # also where "Sync from Google Drive" downloads new files to.
+      - /home/jijo/receipt-analyser/receipts:/receipts
+      # rclone's OAuth config, created on the host via `rclone config` -- mounted
+      # read-only so the container can authenticate to Google Drive.
+      #old value- ~/.config/rclone:/root/.config/rclone:ro
+      - /home/jijo/.config/rclone:/root/.config/rclone:ro
+    restart: unless-stopped
