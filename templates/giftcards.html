@@ -2,47 +2,396 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Gift Cards</title>
+    <title>Gift Cards - {{ store_name }}</title>
+    <!-- Modern Premium Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; background: #f7f7f8; }
-        h1 { font-size: 20px; }
-        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-        input[type=text] { padding: 8px; }
-        button { padding: 8px 16px; background: #e01b22; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 14px; }
-        a { color: #e01b22; text-decoration: none; }
+        :root {
+            --primary: #e11d48;
+            --primary-hover: #be123c;
+            --primary-light: #ffe4e6;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --success-light: #d1fae5;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .btn-back:hover {
+            color: var(--primary);
+        }
+
+        .links-group {
+            display: flex;
+            gap: 16px;
+        }
+        .links-group a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .links-group a:hover {
+            color: var(--primary-hover);
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            margin: 0 0 24px 0;
+            color: var(--text-main);
+            letter-spacing: -0.025em;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .filter-form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-control {
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--bg);
+            color: var(--text-main);
+            transition: all 0.2s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15);
+            background: var(--card-bg);
+        }
+
+        .actions-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn-submit {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-submit:hover {
+            background: var(--primary-hover);
+        }
+        .btn-submit:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            padding: 10px 16px;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 40px;
+            box-sizing: border-box;
+        }
+        .btn-secondary:hover {
+            color: var(--text-main);
+            background: var(--bg);
+            border-color: var(--text-muted);
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 14px 16px;
+            border-bottom: 2px solid var(--border);
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            user-select: none;
+        }
+
+        th a {
+            color: inherit;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.2s;
+            width: 100%;
+        }
+        th a:hover {
+            color: var(--primary);
+        }
+
+        .sort-icon {
+            font-size: 10px;
+            opacity: 0.5;
+            transition: opacity 0.2s;
+        }
+        th a:hover .sort-icon {
+            opacity: 1;
+        }
+        th.active-sort {
+            color: var(--text-main);
+        }
+        th.active-sort .sort-icon {
+            opacity: 1;
+            color: var(--primary);
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+            color: var(--text-main);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: rgba(248, 250, 252, 0.8);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success {
+            background: var(--success-light);
+            color: var(--success);
+        }
+        .badge-neutral {
+            background: var(--bg);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .filename-text {
+            color: var(--text-muted);
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .no-records {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 48px 0;
+            font-size: 15px;
+        }
     </style>
 </head>
 <body>
-    <p><a href="/">&larr; Back</a> | <a href="/analytics/{{ store_key }}">Item Analytics</a></p>
-    <h1>{{ store_name }} - Gift Cards</h1>
+    <div class="container">
+        <div class="header-nav">
+            <a href="/" class="btn-back">&larr; Back to Dashboard</a>
+            <div class="links-group">
+                <a href="/analytics/{{ store_key }}">Item Analytics</a>
+            </div>
+        </div>
 
-    <div class="card">
-        <form method="get" action="/giftcards/{{ store_key }}">
-            <label for="last_four">Filter by card digits:</label><br><br>
-            <input type="text" id="last_four" name="last_four" value="{{ filter_val }}" maxlength="30">
-            <button type="submit">Filter</button>
-        </form>
-    </div>
+        <h1>{{ store_name }} &mdash; Gift Cards</h1>
 
-    <div class="card">
-        {% if cards %}
-        <table>
-            <tr><th>Card</th><th>Remaining balance</th><th>Amount redeemed (last seen)</th><th>Last seen on</th><th>Last updated</th></tr>
-            {% for c in cards %}
-            <tr>
-                <td>**** {{ c.last_four }}</td>
-                <td>{{ "$%.2f"|format(c.balance) if c.balance is not none else "n/a" }}</td>
-                <td>{{ "$%.2f"|format(c.amount_redeemed) if c.amount_redeemed is not none else "n/a" }}</td>
-                <td>{{ c.last_receipt_filename }}</td>
-                <td>{{ c.updated_at.strftime("%d/%m/%Y %H:%M") if c.updated_at else "" }}</td>
-            </tr>
-            {% endfor %}
-        </table>
-        {% else %}
-        <p>No gift cards tracked yet for {{ store_name }}.</p>
-        {% endif %}
+        <!-- Filter and Search controls -->
+        <div class="card">
+            <form method="get" action="/giftcards/{{ store_key }}" class="filter-form">
+                <!-- Keep sorting state when filtering -->
+                <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                <input type="hidden" name="sort_dir" value="{{ sort_dir }}">
+                
+                <div class="form-group">
+                    <label for="last_four">Filter by card digits</label>
+                    <input type="text" id="last_four" name="last_four" value="{{ filter_val }}" maxlength="30" placeholder="e.g. 626" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Balance Status</label>
+                    <select id="status" name="status" class="form-control">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Cards</option>
+                        <option value="has_balance" {% if status_filter == 'has_balance' %}selected{% endif %}>With Balance (> $0)</option>
+                        <option value="no_balance" {% if status_filter == 'no_balance' %}selected{% endif %}>No / Zero Balance</option>
+                    </select>
+                </div>
+
+                <div class="actions-group">
+                    <button type="submit" class="btn-submit">Filter</button>
+                    {% if filter_val or status_filter != 'all' %}
+                        <a href="/giftcards/{{ store_key }}?sort_by={{ sort_by }}&sort_dir={{ sort_dir }}" class="btn-secondary">Clear</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <!-- Gift cards table -->
+        <div class="card table-container">
+            {% if cards %}
+            <table>
+                <thead>
+                    <tr>
+                        <th class="{% if sort_by == 'last_four' %}active-sort{% endif %}">
+                            <a href="?last_four={{ filter_val }}&status={{ status_filter }}&sort_by=last_four&sort_dir={{ 'desc' if sort_by == 'last_four' and sort_dir == 'asc' else 'asc' }}">
+                                Card
+                                <span class="sort-icon">{% if sort_by == 'last_four' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="{% if sort_by == 'balance' %}active-sort{% endif %}">
+                            <a href="?last_four={{ filter_val }}&status={{ status_filter }}&sort_by=balance&sort_dir={{ 'desc' if sort_by == 'balance' and sort_dir == 'asc' else 'asc' }}">
+                                Remaining Balance
+                                <span class="sort-icon">{% if sort_by == 'balance' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="{% if sort_by == 'amount_redeemed' %}active-sort{% endif %}">
+                            <a href="?last_four={{ filter_val }}&status={{ status_filter }}&sort_by=amount_redeemed&sort_dir={{ 'desc' if sort_by == 'amount_redeemed' and sort_dir == 'asc' else 'asc' }}">
+                                Redeemed (Last seen)
+                                <span class="sort-icon">{% if sort_by == 'amount_redeemed' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="{% if sort_by == 'last_receipt_filename' %}active-sort{% endif %}">
+                            <a href="?last_four={{ filter_val }}&status={{ status_filter }}&sort_by=last_receipt_filename&sort_dir={{ 'desc' if sort_by == 'last_receipt_filename' and sort_dir == 'asc' else 'asc' }}">
+                                Last Seen On
+                                <span class="sort-icon">{% if sort_by == 'last_receipt_filename' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                        <th class="{% if sort_by == 'updated_at' %}active-sort{% endif %}">
+                            <a href="?last_four={{ filter_val }}&status={{ status_filter }}&sort_by=updated_at&sort_dir={{ 'desc' if sort_by == 'updated_at' and sort_dir == 'asc' else 'asc' }}">
+                                Transaction Date
+                                <span class="sort-icon">{% if sort_by == 'updated_at' %}{% if sort_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}↕{% endif %}</span>
+                            </a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cards %}
+                    <tr>
+                        <td style="font-weight: 500;">**** {{ c.last_four }}</td>
+                        <td>
+                            {% if c.balance is not none %}
+                                <span class="badge {% if c.balance > 0 %}badge-success{% else %}badge-neutral{% endif %}">
+                                    {{ "$%.2f"|format(c.balance) }}
+                                </span>
+                            {% else %}
+                                <span class="badge badge-neutral">Pending Confirmation</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.amount_redeemed is not none %}
+                                {{ "$%.2f"|format(c.amount_redeemed) }}
+                            {% else %}
+                                <span class="text-muted">n/a</span>
+                            {% endif %}
+                        </td>
+                        <td class="filename-text">{{ c.last_receipt_filename or "n/a" }}</td>
+                        <td>{{ c.updated_at.strftime("%d/%m/%Y") if c.updated_at else "n/a" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-records">
+                <p>No gift cards found matching current filter criteria for {{ store_name }}.</p>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </body>
 </html>

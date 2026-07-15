@@ -49,7 +49,7 @@ class GiftCard(Base):
     amount_redeemed = Column(Float, nullable=True)
     last_receipt_filename = Column(String(255), nullable=True)
     store_key = Column(String(100), nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=True)
 
     __table_args__ = (UniqueConstraint("store_key", "last_four", name="uq_giftcard_store_last_four"),)
 

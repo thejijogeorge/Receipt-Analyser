@@ -94,19 +94,22 @@ def process_folder(folder):
                     last_four=gc["last_four"], store_key=parsed["store_key"]
                 ).first()
 
+                r_date = parsed.get("receipt_date")
+                gc_date = datetime.combine(r_date, datetime.min.time()) if r_date else datetime.utcnow()
+
                 if gc.get("balance") is not None:
                     # store reports remaining balance directly (Coles/Woolworths/JB Hi-Fi)
                     if existing:
                         existing.balance = gc["balance"]
                         existing.last_receipt_filename = filename
-                        existing.updated_at = datetime.utcnow()
+                        existing.updated_at = gc_date
                     else:
                         session.add(GiftCard(
                             last_four=gc["last_four"],
                             balance=gc["balance"],
                             store_key=parsed["store_key"],
                             last_receipt_filename=filename,
-                            updated_at=datetime.utcnow(),
+                            updated_at=gc_date,
                         ))
                     continue
 
@@ -119,13 +122,13 @@ def process_folder(folder):
                     existing.balance = round(existing.balance - redeemed, 2)
                     existing.amount_redeemed = redeemed
                     existing.last_receipt_filename = filename
-                    existing.updated_at = datetime.utcnow()
+                    existing.updated_at = gc_date
                 elif existing and existing.balance is None:
                     # already seen but user hasn't confirmed the starting amount yet --
                     # keep accumulating until they do
                     existing.amount_redeemed = round((existing.amount_redeemed or 0) + redeemed, 2)
                     existing.last_receipt_filename = filename
-                    existing.updated_at = datetime.utcnow()
+                    existing.updated_at = gc_date
                     giftcards_to_confirm.append({
                         "id": existing.id,
                         "last_four": gc["last_four"],
@@ -139,7 +142,7 @@ def process_folder(folder):
                         amount_redeemed=redeemed,
                         store_key=parsed["store_key"],
                         last_receipt_filename=filename,
-                        updated_at=datetime.utcnow(),
+                        updated_at=gc_date,
                     )
                     session.add(new_card)
                     session.flush()  # assign an id before we reference it below
@@ -394,12 +397,46 @@ def giftcards(store_key):
     store_name = receipt.store_name if receipt else store_key
 
     q = session.query(GiftCard).filter(GiftCard.store_key == store_key)
+    
     filter_val = request.args.get("last_four", "").strip()
     if filter_val:
         q = q.filter(GiftCard.last_four.like(f"%{filter_val}%"))
-    cards = q.order_by(GiftCard.last_four).all()
+        
+    status_filter = request.args.get("status", "all").strip()
+    if status_filter == "has_balance":
+        q = q.filter(GiftCard.balance > 0)
+    elif status_filter == "no_balance":
+        q = q.filter((GiftCard.balance <= 0) | (GiftCard.balance.is_(None)))
+
+    sort_by = request.args.get("sort_by", "last_four").strip()
+    sort_dir = request.args.get("sort_dir", "asc").strip()
+    
+    sort_columns = {
+        "last_four": GiftCard.last_four,
+        "balance": GiftCard.balance,
+        "amount_redeemed": GiftCard.amount_redeemed,
+        "last_receipt_filename": GiftCard.last_receipt_filename,
+        "updated_at": GiftCard.updated_at
+    }
+    
+    col = sort_columns.get(sort_by, GiftCard.last_four)
+    if sort_dir == "desc":
+        q = q.order_by(col.desc())
+    else:
+        q = q.order_by(col.asc())
+
+    cards = q.all()
     session.close()
-    return render_template("giftcards.html", cards=cards, filter_val=filter_val, store_key=store_key, store_name=store_name)
+    return render_template(
+        "giftcards.html",
+        cards=cards,
+        filter_val=filter_val,
+        status_filter=status_filter,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        store_key=store_key,
+        store_name=store_name
+    )
 
 
 @app.route("/expenses")
