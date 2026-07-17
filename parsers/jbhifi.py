@@ -13,6 +13,7 @@ NON_ITEM_PREFIXES = ("VOUCHER", "V#")
 MASKED_CARD_RE = re.compile(r'\d+\.\.\.(\d+)')
 REF_NO_RE = re.compile(r'Ref No:\s*([\d\-]+)')
 BALANCE_RE = re.compile(r'Avail Balance:\s*\$([\d.]+)')
+VALUE_RE = re.compile(r'Value:\s*\$([\d.]+)', re.IGNORECASE)
 
 
 def matches(text):
@@ -158,6 +159,17 @@ def _extract_gift_cards(lines):
         if not bm:
             continue
 
-        cards.append({"last_four": card_id, "balance": float(bm.group(1))})
+        value_line = next((l for l in block if l.startswith("Value:")), None)
+        value_amt = None
+        if value_line:
+            vm = VALUE_RE.search(value_line)
+            if vm:
+                value_amt = float(vm.group(1))
+
+        cards.append({
+            "last_four": card_id,
+            "balance": float(bm.group(1)),
+            "amount_redeemed": value_amt
+        })
 
     return cards

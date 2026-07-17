@@ -3,6 +3,7 @@ import pdfplumber
 from datetime import datetime
 
 QTY_RE = re.compile(r'^(\d+)\s*@\s*\$([\d.]+)\s*EACH$', re.IGNORECASE)
+WEIGHT_RE = re.compile(r'^([\d.]+)\s*kg\s*(?:NET\s*)?@\s*\$([\d.]+)/kg$', re.IGNORECASE)
 ITEM_RE = re.compile(r'^(%\s*)?(.+?)\s+-?\$?(\d+\.\d{2})$')
 NEG_RE = re.compile(r'-\$?(\d+\.\d{2})$')
 DATE_RE = re.compile(r'Date:\s*(\d{2}/\d{2}/\d{4})')
@@ -122,6 +123,12 @@ def parse_receipt(pdf_path):
         if qm and items:
             items[-1]["quantity"] = int(qm.group(1))
             items[-1]["unit_price"] = float(qm.group(2))
+            continue
+
+        # weight line e.g. "0.216 kg NET @ $5.90/kg" -> updates previous item
+        wm = WEIGHT_RE.match(line)
+        if wm and items:
+            items[-1]["unit_price"] = float(wm.group(2))
             continue
 
         # multi-buy / promo discount line, e.g. "DOLMIO PASTA SAUCE 2 FOR $6 -$3.20"

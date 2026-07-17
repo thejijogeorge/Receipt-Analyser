@@ -11,6 +11,7 @@ BASKET_DISCOUNT_KEYWORDS = ("everyday extra",)
 
 CARD_RE = re.compile(r'CARD:\.+(\d+)')
 BALANCE_RE = re.compile(r'BALANCE\s+\$?([\d.]+)')
+REDEMPTION_RE = re.compile(r'REDEMPTION\s+\$?([\d.]+)', re.IGNORECASE)
 
 
 def matches(text):
@@ -122,6 +123,17 @@ def _extract_gift_cards(lines):
         if not bm:
             continue
 
-        cards.append({"last_four": card_id, "balance": float(bm.group(1))})
+        redemption_line = next((l for l in block if l.startswith("REDEMPTION")), None)
+        redemption_amt = None
+        if redemption_line:
+            rm = REDEMPTION_RE.search(redemption_line)
+            if rm:
+                redemption_amt = float(rm.group(1))
+
+        cards.append({
+            "last_four": card_id,
+            "balance": float(bm.group(1)),
+            "amount_redeemed": redemption_amt
+        })
 
     return cards

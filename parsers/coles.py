@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 
 QTY_RE = re.compile(r'^(\d+)\s*@\s*\$([\d.]+)\s*EACH$', re.IGNORECASE)
+WEIGHT_RE = re.compile(r'^([\d.]+)\s*kg\s*(?:NET\s*)?@\s*\$([\d.]+)/kg$', re.IGNORECASE)
 ITEM_RE = re.compile(r'^(%\s*)?(.+?)\s+-?\$?(\d+\.\d{2})$')
 NEG_RE = re.compile(r'-\$?(\d+\.\d{2})$')
 DATE_RE = re.compile(r'Date:\s*(\d{2}/\d{2}/\d{4})')
@@ -10,6 +11,7 @@ STORE_RE = re.compile(r'Store:\s*(.+)')
 GIFT_CARD_HEADER_RE = re.compile(r'(\d+)\s+(\d+)\s+COLES GIFT CARD$')
 STATUS_RE = re.compile(r'\((\d+)\)(APPROVED|DECLINED)')
 BALANCE_RE = re.compile(r'BALANCE\s+AUD\$\s*([\d.]+)')
+PURCHASE_RE = re.compile(r'PURCHASE\s+AUD\$\s*([\d.]+)', re.IGNORECASE)
 
 
 def matches(text):
@@ -48,6 +50,12 @@ def parse(text):
         if qm and items:
             items[-1]["quantity"] = int(qm.group(1))
             items[-1]["unit_price"] = float(qm.group(2))
+            continue
+
+        # weight line e.g. "0.216 kg NET @ $5.90/kg" -> updates previous item
+        wm = WEIGHT_RE.match(line)
+        if wm and items:
+            items[-1]["unit_price"] = float(wm.group(2))
             continue
 
         # multi-buy / promo discount line, e.g. "DOLMIO PASTA SAUCE 2 FOR $6 -$3.20"
@@ -137,6 +145,17 @@ def _extract_gift_cards(lines):
         if not bm:
             continue
 
-        cards.append({"last_four": card_id, "balance": float(bm.group(1))})
+        purchase_line = next((l for l in block if l.startswith("PURCHASE")), None)
+        purchase_amt = None
+        if purchase_line:
+            pm = PURCHASE_RE.search(purchase_line)
+            if pm:
+                purchase_amt = float(pm.group(1))
+
+        cards.append({
+            "last_four": card_id,
+            "balance": float(bm.group(1)),
+            "amount_redeemed": purchase_amt
+        })
 
     return cards

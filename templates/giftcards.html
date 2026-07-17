@@ -283,6 +283,13 @@
 </head>
 <body>
     <div class="container">
+        <!-- Site-wide Header -->
+        <div class="app-header" style="margin-bottom: 32px; border-bottom: 1px solid var(--border); padding-bottom: 16px;">
+            <h1 style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;">
+                <a href="/" style="text-decoration: none; color: var(--text-main); transition: color 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-main)'">Receipt Analyser</a>
+            </h1>
+        </div>
+
         <div class="header-nav">
             <a href="/" class="btn-back">&larr; Back to Dashboard</a>
             <div class="links-group">
@@ -363,7 +370,11 @@
                 <tbody>
                     {% for c in cards %}
                     <tr>
-                        <td style="font-weight: 500;">**** {{ c.last_four }}</td>
+                        <td style="font-weight: 500;">
+                            <a href="/giftcard/{{ c.id }}/deductions" style="text-decoration: none; color: inherit; transition: color 0.15s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='inherit'">
+                                **** {{ c.last_four }}
+                            </a>
+                        </td>
                         <td>
                             {% if c.balance is not none %}
                                 <span class="badge {% if c.balance > 0 %}badge-success{% else %}badge-neutral{% endif %}">

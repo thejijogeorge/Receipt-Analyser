@@ -54,6 +54,19 @@ class GiftCard(Base):
     __table_args__ = (UniqueConstraint("store_key", "last_four", name="uq_giftcard_store_last_four"),)
 
 
+class GiftCardDeduction(Base):
+    __tablename__ = "gift_card_deductions"
+
+    id = Column(Integer, primary_key=True)
+    gift_card_id = Column(Integer, ForeignKey("gift_cards.id"), nullable=False)
+    receipt_id = Column(Integer, ForeignKey("receipts.id"), nullable=False)
+    amount_redeemed = Column(Float, nullable=False)
+    balance = Column(Float, nullable=True)
+
+    gift_card = relationship("GiftCard", backref="deductions")
+    receipt = relationship("Receipt", backref="gift_card_deductions")
+
+
 def get_engine():
     db_url = os.environ["DATABASE_URL"]
     return create_engine(db_url)

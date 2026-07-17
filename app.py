@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from parsers import parse_receipt
 from extractors import SUPPORTED_EXTENSIONS
-from models import get_session, Receipt, ReceiptItem, GiftCard
+from models import get_session, Receipt, ReceiptItem, GiftCard, GiftCardDeduction
 
 app = Flask(__name__)
 
@@ -96,62 +96,85 @@ def process_folder(folder):
 
                 r_date = parsed.get("receipt_date")
                 gc_date = datetime.combine(r_date, datetime.min.time()) if r_date else datetime.utcnow()
+                redeemed = gc.get("amount_redeemed")
+
+                card = None
+                card_balance = None
 
                 if gc.get("balance") is not None:
                     # store reports remaining balance directly (Coles/Woolworths/JB Hi-Fi)
+                    card_balance = gc["balance"]
                     if existing:
-                        existing.balance = gc["balance"]
+                        existing.balance = card_balance
+                        existing.amount_redeemed = redeemed
                         existing.last_receipt_filename = filename
                         existing.updated_at = gc_date
+                        card = existing
                     else:
-                        session.add(GiftCard(
+                        card = GiftCard(
                             last_four=gc["last_four"],
-                            balance=gc["balance"],
+                            balance=card_balance,
+                            amount_redeemed=redeemed,
                             store_key=parsed["store_key"],
                             last_receipt_filename=filename,
                             updated_at=gc_date,
-                        ))
-                    continue
-
-                redeemed = gc.get("amount_redeemed")
-                if redeemed is None:
-                    continue
-
-                if existing and existing.balance is not None:
-                    # known leftover balance -- just deduct this transaction's redemption
-                    existing.balance = round(existing.balance - redeemed, 2)
-                    existing.amount_redeemed = redeemed
-                    existing.last_receipt_filename = filename
-                    existing.updated_at = gc_date
-                elif existing and existing.balance is None:
-                    # already seen but user hasn't confirmed the starting amount yet --
-                    # keep accumulating until they do
-                    existing.amount_redeemed = round((existing.amount_redeemed or 0) + redeemed, 2)
-                    existing.last_receipt_filename = filename
-                    existing.updated_at = gc_date
-                    giftcards_to_confirm.append({
-                        "id": existing.id,
-                        "last_four": gc["last_four"],
-                        "store_key": parsed["store_key"],
-                        "pending_redeemed": existing.amount_redeemed,
-                    })
+                        )
+                        session.add(card)
                 else:
-                    new_card = GiftCard(
-                        last_four=gc["last_four"],
-                        balance=None,
-                        amount_redeemed=redeemed,
-                        store_key=parsed["store_key"],
-                        last_receipt_filename=filename,
-                        updated_at=gc_date,
-                    )
-                    session.add(new_card)
-                    session.flush()  # assign an id before we reference it below
-                    giftcards_to_confirm.append({
-                        "id": new_card.id,
-                        "last_four": gc["last_four"],
-                        "store_key": parsed["store_key"],
-                        "pending_redeemed": redeemed,
-                    })
+                    if redeemed is None:
+                        continue
+
+                    if existing and existing.balance is not None:
+                        # known leftover balance -- just deduct this transaction's redemption
+                        card_balance = round(existing.balance - redeemed, 2)
+                        existing.balance = card_balance
+                        existing.amount_redeemed = redeemed
+                        existing.last_receipt_filename = filename
+                        existing.updated_at = gc_date
+                        card = existing
+                    elif existing and existing.balance is None:
+                        # already seen but user hasn't confirmed the starting amount yet --
+                        # keep accumulating until they do
+                        existing.amount_redeemed = round((existing.amount_redeemed or 0) + redeemed, 2)
+                        existing.last_receipt_filename = filename
+                        existing.updated_at = gc_date
+                        card = existing
+                        giftcards_to_confirm.append({
+                            "id": existing.id,
+                            "last_four": gc["last_four"],
+                            "store_key": parsed["store_key"],
+                            "pending_redeemed": existing.amount_redeemed,
+                        })
+                    else:
+                        card = GiftCard(
+                            last_four=gc["last_four"],
+                            balance=None,
+                            amount_redeemed=redeemed,
+                            store_key=parsed["store_key"],
+                            last_receipt_filename=filename,
+                            updated_at=gc_date,
+                        )
+                        session.add(card)
+                        session.flush()  # assign an id before we reference it below
+                        giftcards_to_confirm.append({
+                            "id": card.id,
+                            "last_four": gc["last_four"],
+                            "store_key": parsed["store_key"],
+                            "pending_redeemed": redeemed,
+                        })
+
+                if card and redeemed is not None:
+                    session.flush()  # ensure card has id
+                    existing_deduction = session.query(GiftCardDeduction).filter_by(
+                        gift_card_id=card.id, receipt_id=receipt.id
+                    ).first()
+                    if not existing_deduction:
+                        session.add(GiftCardDeduction(
+                            gift_card_id=card.id,
+                            receipt_id=receipt.id,
+                            amount_redeemed=redeemed,
+                            balance=card_balance
+                        ))
 
             session.commit()
 
@@ -336,15 +359,18 @@ def analytics_items(store_key):
 @app.route("/analytics/<store_key>/data")
 def analytics_data(store_key):
     selected_items = request.args.getlist("item")
+    track_mode = request.args.get("track", "unit_price")
     session = get_session()
     display_name = func.coalesce(ReceiptItem.real_name, ReceiptItem.item_name)
+
+    track_col = ReceiptItem.unit_price if track_mode == "unit_price" else ReceiptItem.line_total
 
     per_item = {}
     all_dates = set()
 
     for item in selected_items:
         rows = (
-            session.query(Receipt.receipt_date, ReceiptItem.unit_price)
+            session.query(Receipt.receipt_date, track_col.label("price"))
             .join(Receipt, ReceiptItem.receipt_id == Receipt.id)
             .filter(display_name == item)
             .filter(Receipt.store_key == store_key)
@@ -358,7 +384,7 @@ def analytics_data(store_key):
 
         by_date = {}
         for r in rows:
-            by_date[r.receipt_date] = r.unit_price
+            by_date[r.receipt_date] = r.price
             all_dates.add(r.receipt_date)
 
         dates_sorted = sorted(by_date.keys())
@@ -436,6 +462,69 @@ def giftcards(store_key):
         sort_dir=sort_dir,
         store_key=store_key,
         store_name=store_name
+    )
+
+
+@app.route("/giftcard/<int:card_id>/deductions")
+def giftcard_deductions(card_id):
+    session = get_session()
+    card = session.get(GiftCard, card_id)
+    if not card:
+        session.close()
+        return "Gift card not found", 404
+
+    # Fetch store name
+    receipt = session.query(Receipt).filter_by(store_key=card.store_key).first()
+    store_name = receipt.store_name if receipt else card.store_key
+
+    # Fetch deductions sorted by receipt date ascending (chronological)
+    deductions = (
+        session.query(GiftCardDeduction)
+        .filter(GiftCardDeduction.gift_card_id == card_id)
+        .join(Receipt, GiftCardDeduction.receipt_id == Receipt.id)
+        .order_by(Receipt.receipt_date.asc())
+        .all()
+    )
+
+    # Compute running balances
+    computed_deductions = []
+    
+    if card.balance is not None:
+        # We know the current balance, so we can calculate the starting balance
+        total_redeemed = sum(d.amount_redeemed for d in deductions if d.amount_redeemed)
+        running_bal = round(card.balance + total_redeemed, 2)
+    else:
+        running_bal = None
+
+    for d in deductions:
+        # If the store reports the remaining balance directly, use that,
+        # otherwise use our computed running balance.
+        if d.balance is not None:
+            display_bal = d.balance
+            # update running_bal to stay in sync
+            running_bal = d.balance
+        elif running_bal is not None:
+            running_bal = round(running_bal - d.amount_redeemed, 2)
+            display_bal = running_bal
+        else:
+            display_bal = None
+
+        computed_deductions.append({
+            "date": d.receipt.receipt_date,
+            "filename": d.receipt.filename,
+            "amount_redeemed": d.amount_redeemed,
+            "balance_after": display_bal
+        })
+
+    # Sort the list newest first for display
+    computed_deductions.reverse()
+
+    session.close()
+    return render_template(
+        "giftcard_deductions.html",
+        card=card,
+        store_name=store_name,
+        deductions=computed_deductions
     )
 
 

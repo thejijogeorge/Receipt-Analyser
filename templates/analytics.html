@@ -2,26 +2,233 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Item Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; background: #f7f7f8; }
-        h1 { font-size: 20px; }
-        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-        select { padding: 8px; min-width: 300px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eee; font-size: 14px; }
-        a { color: #e01b22; text-decoration: none; }
-        .hint { font-size: 12px; color: #666; }
+        :root {
+            --primary: #dc2626;
+            --primary-hover: #b91c1c;
+            --primary-light: #fef2f2;
+            --primary-gradient: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --border-hover: #cbd5e1;
+            --radius-lg: 12px;
+            --radius-md: 8px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.02);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: var(--background);
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+        }
+
+        h2, h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: var(--text-main);
+        }
+
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-hover);
+        }
+
+        select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 14px;
+            background: #f8fafc;
+            color: var(--text-main);
+            transition: all 0.15s ease;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            background: #f8fafc;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: #f8fafc;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.15s ease;
+        }
+
+        a:hover {
+            color: var(--primary-hover);
+            text-decoration: underline;
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            padding: 8px 16px;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            border-color: var(--border-hover);
+            text-decoration: none;
+            transform: translateY(-1px);
+        }
+
+        .hint {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            margin-bottom: 12px;
+        }
+
+        .label-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        /* Toggle group styled like a premium segment controller */
+        .toggle-group {
+            display: inline-flex;
+            background: #f1f5f9;
+            padding: 4px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            margin-top: 6px;
+        }
+        .toggle-group input[type="radio"] {
+            display: none;
+        }
+        .toggle-group label {
+            padding: 8px 16px;
+            border-radius: calc(var(--radius-md) - 2px);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            color: var(--text-muted);
+            user-select: none;
+        }
+        .toggle-group input[type="radio"]:checked + label {
+            background: #fff;
+            color: var(--text-main);
+            box-shadow: var(--shadow-sm);
+        }
     </style>
 </head>
 <body>
-    <p><a href="/">&larr; Back</a> | <a href="/giftcards/{{ store_key }}">Gift Cards</a></p>
-    <h1>{{ store_name }} - Item Analytics</h1>
+    <!-- Site-wide Header -->
+    <div class="app-header" style="margin-bottom: 32px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px;">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;">
+            <a href="/" style="text-decoration: none; color: var(--text-main); transition: color 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-main)'">Receipt Analyser</a>
+        </h1>
+    </div>
+
+    <div class="header-section">
+        <div>
+            <p style="margin-top: 0; margin-bottom: 8px;">
+                <a href="/">&larr; Back to Dashboard</a> | 
+                <a href="/giftcards/{{ store_key }}">Gift Cards</a>
+            </p>
+            <h2 style="font-size: 22px; font-weight: 700; margin: 0; color: var(--text-main); letter-spacing: -0.02em;">{{ store_name }} - Item Analytics</h2>
+        </div>
+    </div>
+
+    <!-- Toggle Selector for Unit Price vs Line Total -->
+    <div class="card">
+        <span class="label-text">Analysis Metric</span>
+        <div class="toggle-group">
+            <input type="radio" id="metric-unit" name="track-metric" value="unit_price" checked onchange="loadData()">
+            <label for="metric-unit">Unit Price Level</label>
+            
+            <input type="radio" id="metric-total" name="track-metric" value="line_total" onchange="loadData()">
+            <label for="metric-total">Line Total / Spending</label>
+        </div>
+    </div>
 
     <div class="card">
-        <label for="item-select">Select item(s):</label>
-        <p class="hint">Ctrl/Cmd-click (or Shift-click) to select multiple.</p>
+        <label class="label-text" for="item-select">Select item(s):</label>
+        <p class="hint">Ctrl/Cmd-click (or Shift-click) to select multiple items for comparison.</p>
         <select id="item-select" multiple size="8" onchange="loadData()">
         </select>
     </div>
@@ -37,7 +244,9 @@
     </div>
 
     <div class="card" id="empty-card">
-        <p>Pick one or more items above to see price history over time.</p>
+        <p style="text-align: center; color: var(--text-muted); margin: 20px 0;">
+            Pick one or more items above to visualize their price history over time.
+        </p>
     </div>
 
     <script>
@@ -69,8 +278,12 @@
                 return;
             }
 
+            const trackMetric = document.querySelector('input[name="track-metric"]:checked').value;
+
             const params = new URLSearchParams();
             selected.forEach(item => params.append('item', item));
+            params.append('track', trackMetric);
+            
             const res = await fetch('/analytics/' + storeKey + '/data?' + params.toString());
             const data = await res.json();
 
@@ -88,12 +301,15 @@
 
             const ctx = document.getElementById('priceChart').getContext('2d');
             if (chart) chart.destroy();
+            
+            const labelSuffix = trackMetric === 'unit_price' ? ' - unit price ($)' : ' - line total ($)';
+
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: data.labels,
                     datasets: data.series.map((s, i) => ({
-                        label: s.item + ' - unit price ($)',
+                        label: s.item + labelSuffix,
                         data: s.data,
                         borderColor: colors[i % colors.length],
                         backgroundColor: colors[i % colors.length] + '20',
@@ -102,7 +318,32 @@
                     }))
                 },
                 options: {
-                    scales: { y: { beginAtZero: false } }
+                    scales: { 
+                        y: { 
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        } 
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += '$' + context.parsed.y.toFixed(2);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
                 }
             });
         }

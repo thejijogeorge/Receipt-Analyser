@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Gift Card Deductions - **** {{ card.last_four }}</title>
+    <!-- Modern Premium Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #e11d48;
+            --primary-hover: #be123c;
+            --primary-light: #ffe4e6;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --success-light: #d1fae5;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .app-header {
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .app-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.025em;
+        }
+
+        .app-header h1 a {
+            text-decoration: none;
+            color: var(--text-main);
+            transition: color 0.2s;
+        }
+
+        .app-header h1 a:hover {
+            color: var(--primary);
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .btn-back:hover {
+            color: var(--primary);
+        }
+
+        h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 0 0 8px 0;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 32px;
+            margin-bottom: 8px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .meta-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .meta-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            padding: 14px 16px;
+            border-bottom: 2px solid var(--border);
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+            color: var(--text-main);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background-color: rgba(248, 250, 252, 0.8);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success {
+            background: var(--success-light);
+            color: var(--success);
+        }
+        .badge-neutral {
+            background: var(--bg);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+
+        .filename-text {
+            color: var(--text-muted);
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .no-records {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 48px 0;
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Site-wide Header -->
+        <div class="app-header">
+            <h1><a href="/">Receipt Analyser</a></h1>
+        </div>
+
+        <div class="header-nav">
+            <a href="/giftcards/{{ card.store_key }}" class="btn-back">&larr; Back to {{ store_name }} Gift Cards</a>
+        </div>
+
+        <h2>Gift Card Details &mdash; **** {{ card.last_four }}</h2>
+        
+        <div class="card">
+            <div class="card-meta">
+                <div class="meta-item">
+                    <span class="meta-label">Store</span>
+                    <span class="meta-value">{{ store_name }}</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Current Balance</span>
+                    <span class="meta-value">
+                        {% if card.balance is not none %}
+                            {{ "$%.2f"|format(card.balance) }}
+                        {% else %}
+                            Pending Confirmation
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Last Updated</span>
+                    <span class="meta-value">{{ card.updated_at.strftime("%d/%m/%Y") if card.updated_at else "n/a" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <h3>Deduction History</h3>
+        <div class="card table-container">
+            {% if deductions %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Transaction Date</th>
+                        <th>Receipt File</th>
+                        <th>Amount Deducted</th>
+                        <th>Remaining Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in deductions %}
+                    <tr>
+                        <td style="font-weight: 500;">{{ d.date.strftime("%d/%m/%Y") if d.date else "n/a" }}</td>
+                        <td class="filename-text">{{ d.filename }}</td>
+                        <td style="color: var(--primary); font-weight: 600;">
+                            -{{ "$%.2f"|format(d.amount_redeemed) }}
+                        </td>
+                        <td>
+                            {% if d.balance_after is not none %}
+                                <span class="badge {% if d.balance_after > 0 %}badge-success{% else %}badge-neutral{% endif %}">
+                                    {{ "$%.2f"|format(d.balance_after) }}
+                                </span>
+                            {% else %}
+                                <span class="badge badge-neutral">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-records">
+                <p>No deductions recorded for this gift card.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
