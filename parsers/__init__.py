@@ -1,8 +1,8 @@
 from extractors import extract_text
 
-from . import coles, jbhifi, woolworths, kmart, ambeys, unknown
+from . import coles, jbhifi, woolworths, kmart, ambeys, ikea, unknown
 
-STORE_MODULES = [coles, jbhifi, woolworths, kmart, ambeys]
+STORE_MODULES = [coles, jbhifi, woolworths, kmart, ambeys, ikea]
 
 
 def detect_store_module(text):
