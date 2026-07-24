@@ -1,13 +1,24 @@
 import re
 from datetime import datetime
 
-DATE_RE = re.compile(r'Date:\s*(\d{2}/\d{2}/\d{4})')
-PRICE_LINE_RE = re.compile(r'(\d+)\s*[Xx].*?\$?(\d+\.\d{2}).*?=.*?\$?(\d+\.\d{2})')
+DATE_RE = re.compile(r'(?:Date|Transaction)\s*:?\s*(\d{2}[/\.-]\d{2}[/\.-]\d{4})', re.IGNORECASE)
+STORE_MATCH_RE = re.compile(
+    r'a[abn]beys?|big\s*apple|tallawong|55\s*674\s*313\s*252',
+    re.IGNORECASE
+)
+KG_PRICE_LINE_RE = re.compile(
+    r'([\d.]+)\s*kg\s*[Xx]\s*\$?([\d.]+)\s*/\s*kg\s*=\s*\$?([\d.]+)',
+    re.IGNORECASE
+)
+QTY_PRICE_LINE_RE = re.compile(
+    r'(\d+)\s*[Xx]\s*\$?([\d.]+)\s*=\s*\$?([\d.]+)',
+    re.IGNORECASE
+)
 NAME_CLEAN_RE = re.compile(r'^[^A-Za-z0-9]+')
 
 
 def matches(text):
-    return "ambeys" in text.lower()
+    return bool(STORE_MATCH_RE.search(text))
 
 
 def parse(text):
@@ -17,14 +28,17 @@ def parse(text):
     for line in lines:
         m = DATE_RE.search(line)
         if m:
-            receipt_date = datetime.strptime(m.group(1), "%d/%m/%Y").date()
+            raw_date = m.group(1).replace(".", "/").replace("-", "/")
+            receipt_date = datetime.strptime(raw_date, "%d/%m/%Y").date()
             break
 
     store_location = None
     for line in lines:
-        if "ambeys" in line.lower():
+        if STORE_MATCH_RE.search(line):
             store_location = line
             break
+    if not store_location and lines:
+        store_location = lines[0]
 
     items = _extract_items(lines)
 
@@ -40,17 +54,24 @@ def parse(text):
 
 def _extract_items(lines):
     """OCR of a photographed receipt is noisy, especially in item names --
-    but the "qty X unit_price = line_total" line is reliably recognizable
-    even with OCR errors elsewhere, so we anchor on that pattern rather
-    than trying to detect section boundaries (which get garbled
-    unpredictably). The item name is taken from whichever line immediately
-    precedes the matched price line, with leading OCR noise (stray
-    asterisks, symbols the taxable-item marker got misread as) stripped.
+    but item price lines are reliably recognizable even with OCR errors.
+    Ambey receipts use two line formats for pricing:
+      1) Fixed quantity items:  <qty> X $<unit_price> = $<line_total>
+         e.g. "1 X $15.99 = $15.99"
+      2) Weight-based items:     <weight>kg X $<price_per_kg>/kg = $<line_total>
+         e.g. "1.510kg X $3.49/kg = $5.27"
+    The item name is taken from whichever line immediately precedes the price
+    line, with leading OCR noise stripped.
     """
     items = []
     for i, line in enumerate(lines):
-        pm = PRICE_LINE_RE.search(line)
-        if not pm or i == 0:
+        if i == 0:
+            continue
+
+        km = KG_PRICE_LINE_RE.search(line)
+        qm = QTY_PRICE_LINE_RE.search(line) if not km else None
+
+        if not km and not qm:
             continue
 
         raw_name = lines[i - 1]
@@ -58,12 +79,27 @@ def _extract_items(lines):
         if not name:
             continue
 
-        items.append({
-            "item_name": name,
-            "quantity": int(pm.group(1)),
-            "unit_price": float(pm.group(2)),
-            "line_total": float(pm.group(3)),
-            "discount": None,
-        })
+        if km:
+            unit_price = float(km.group(2))
+            line_total = float(km.group(3))
+            items.append({
+                "item_name": name,
+                "quantity": 1,
+                "unit_price": unit_price,
+                "line_total": line_total,
+                "discount": None,
+            })
+        elif qm:
+            quantity = int(qm.group(1))
+            unit_price = float(qm.group(2))
+            line_total = float(qm.group(3))
+            items.append({
+                "item_name": name,
+                "quantity": quantity,
+                "unit_price": unit_price,
+                "line_total": line_total,
+                "discount": None,
+            })
 
     return items
+
