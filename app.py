@@ -597,6 +597,73 @@ def expenses_data():
     })
 
 
+@app.route("/expenses/month-items")
+def expenses_month_items():
+    month_str = request.args.get("month", "").strip()
+    selected_stores = request.args.getlist("store")
+
+    if not month_str:
+        return jsonify({"error": "Month parameter required"}), 400
+
+    try:
+        parts = month_str.split("-")
+        target_year = int(parts[0])
+        target_month = int(parts[1])
+    except (ValueError, IndexError):
+        return jsonify({"error": "Invalid month format. Expected YYYY-MM"}), 400
+
+    session = get_session()
+
+    display_name = func.coalesce(ReceiptItem.real_name, ReceiptItem.item_name)
+    store_disp_name = func.coalesce(Receipt.store_name, Receipt.store, Receipt.store_key)
+
+    q = (
+        session.query(
+            Receipt.receipt_date,
+            store_disp_name.label("store_name"),
+            display_name.label("item_name"),
+            ReceiptItem.item_name.label("raw_item_name"),
+            ReceiptItem.line_total,
+            ReceiptItem.unit_price,
+            ReceiptItem.quantity
+        )
+        .join(Receipt, ReceiptItem.receipt_id == Receipt.id)
+        .filter(Receipt.receipt_date.isnot(None))
+    )
+
+    if selected_stores:
+        q = q.filter(Receipt.store_key.in_(selected_stores))
+
+    rows = q.all()
+    session.close()
+
+    items = []
+    total_spend = 0.0
+
+    for r in rows:
+        if r.receipt_date.year == target_year and r.receipt_date.month == target_month:
+            price = round(r.line_total, 2) if r.line_total is not None else (round(r.unit_price, 2) if r.unit_price is not None else 0.0)
+            total_spend += price
+            items.append({
+                "date": r.receipt_date.isoformat(),
+                "item_name": r.item_name or r.raw_item_name or "Unknown Item",
+                "store_name": r.store_name or "Unknown Store",
+                "price": price,
+                "unit_price": round(r.unit_price, 2) if r.unit_price is not None else None,
+                "quantity": r.quantity or 1,
+            })
+
+    items.sort(key=lambda x: (x["date"], x["store_name"].lower(), x["item_name"].lower()))
+
+    return jsonify({
+        "month": month_str,
+        "total_items": len(items),
+        "total_spend": round(total_spend, 2),
+        "items": items,
+    })
+
+
+
 
 # ==============================================================================
 # REST API V1 ENDPOINTS (FOR MOBILE ANDROID APP & EXTERNAL INTEGRATIONS)

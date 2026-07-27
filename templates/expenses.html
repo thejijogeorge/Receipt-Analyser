@@ -2,73 +2,439 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Monthly Expenses</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Expenses - Receipt Analyser</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; background: #f7f7f8; }
-        h1 { font-size: 20px; }
-        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-        select { padding: 8px; min-width: 300px; }
-        .stat { display: inline-block; margin-right: 30px; font-size: 14px; }
-        .stat b { font-size: 18px; display: block; }
-        a { color: #e01b22; text-decoration: none; }
-        .hint { font-size: 12px; color: #666; }
-        button { padding: 6px 12px; background: #e01b22; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-top: 8px; }
+        :root {
+            --primary: #dc2626;
+            --primary-hover: #b91c1c;
+            --primary-light: #fef2f2;
+            --primary-gradient: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --border-hover: #cbd5e1;
+            --radius-lg: 12px;
+            --radius-md: 8px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.02);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02);
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: var(--background);
+            color: var(--text-main);
+            line-height: 1.5;
+        }
+
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+        }
+
+        h1 a {
+            text-decoration: none;
+            color: inherit;
+            transition: color 0.2s;
+        }
+
+        h1 a:hover {
+            color: var(--primary);
+        }
+
+        .nav-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            padding: 8px 16px;
+            background: #fff;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            box-shadow: var(--shadow-sm);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav-link:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+            color: var(--primary);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--border-hover);
+        }
+
+        h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .hint {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 14px;
+            background: #f8fafc;
+            color: var(--text-main);
+            transition: all 0.15s ease;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: var(--primary-gradient);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 500;
+            font-family: inherit;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(220, 38, 38, 0.15);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(220, 38, 38, 0.25);
+            filter: brightness(1.05);
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-secondary:hover {
+            background: #f8fafc;
+            color: var(--text-main);
+            box-shadow: var(--shadow-sm);
+            border-color: var(--border-hover);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-box {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-box span {
+            font-size: 13px;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+
+        .stat-box b {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .graph-hint-banner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            padding: 10px 14px;
+            border-radius: var(--radius-md);
+            font-size: 13.5px;
+            margin-top: 14px;
+            font-weight: 500;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 9px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 14px;
+            margin-bottom: 16px;
+            background: #f8fafc;
+            box-sizing: border-box;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--text-muted);
+            background: #f8fafc;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: #f8fafc;
+        }
+
+        .item-price {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .qty-subtext {
+            font-size: 11px;
+            color: var(--text-muted);
+            display: block;
+        }
+
+        .date-cell {
+            white-space: nowrap;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(0,0,0,0.05);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .selected-bar-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
+            padding: 8px 12px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
     </style>
 </head>
 <body>
-    <!-- Site-wide Header -->
-    <div class="app-header" style="margin-bottom: 32px; border-bottom: 1px solid #ddd; padding-bottom: 16px;">
-        <h1 style="margin: 0; font-size: 28px; font-weight: 700; font-family: sans-serif; letter-spacing: -0.025em;">
-            <a href="/" style="text-decoration: none; color: #333; transition: color 0.2s;" onmouseover="this.style.color='#e01b22'" onmouseout="this.style.color='#333'">Receipt Analyser</a>
-        </h1>
+    <div class="header-section">
+        <div>
+            <h1><a href="/">Receipt Analyser</a></h1>
+        </div>
+        <a href="/" class="nav-link">
+            &larr; Back to Dashboard
+        </a>
     </div>
 
-    <p><a href="/">&larr; Back to Dashboard</a></p>
-    <h2 style="font-size: 20px; font-weight: 700; margin: 0 0 16px 0;">Monthly Expenses</h2>
+    <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 20px;">Monthly Expenses</h2>
 
     <div class="card">
-        <label for="store-select">Filter by store(s):</label>
-        <p class="hint">Ctrl/Cmd-click (or Shift-click) to select multiple. All stores selected by default.</p>
-        <select id="store-select" multiple size="6" onchange="loadData()"></select>
-        <br>
-        <button onclick="selectAll()">Select All</button>
+        <h2>Store Filter</h2>
+        <p class="hint">Ctrl/Cmd-click (or Shift-click) to select multiple stores. All stores are selected by default.</p>
+        <select id="store-select" multiple size="5" onchange="loadData()"></select>
+        <div class="btn-group">
+            <button onclick="selectAll()">Select All</button>
+            <button class="btn-secondary" onclick="deselectAll()">Deselect All</button>
+        </div>
     </div>
 
     <div class="card" id="stats-card" style="display:none;">
-        <div class="stat"><span>Total spend</span><b id="stat-total">-</b></div>
-        <div class="stat"><span>Months tracked</span><b id="stat-months">-</b></div>
-        <div class="stat"><span>Average per month</span><b id="stat-avg">-</b></div>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <span>Total Spend</span>
+                <b id="stat-total">$0.00</b>
+            </div>
+            <div class="stat-box">
+                <span>Months Tracked</span>
+                <b id="stat-months">0</b>
+            </div>
+            <div class="stat-box">
+                <span>Monthly Average</span>
+                <b id="stat-avg">$0.00</b>
+            </div>
+        </div>
     </div>
 
     <div class="card" id="chart-card" style="display:none;">
-        <canvas id="expenseChart" height="120"></canvas>
+        <h2>Expense Trend</h2>
+        <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="expenseChart"></canvas>
+        </div>
+        <div class="graph-hint-banner">
+            <svg style="width:18px;height:18px;flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>Click on any bar in the graph above to view the underlying items for that month.</span>
+        </div>
+    </div>
+
+    <!-- Underlying Items Card -->
+    <div class="card" id="items-card" style="display:none;">
+        <h2>
+            <span id="items-card-title">Underlying Items</span>
+            <span id="items-card-badge" class="badge">0 items</span>
+        </h2>
+        <div id="items-card-meta" class="selected-bar-info" style="display:none;"></div>
+        <input type="text" id="item-search" class="search-box" placeholder="🔍 Search items by name, store, price, or date..." onkeyup="filterItemsTable()">
+        <div id="items-loading" style="display:none;">
+            <div class="spinner"></div>
+            <p style="text-align: center; color: var(--text-muted); font-size: 14px;">Loading underlying items...</p>
+        </div>
+        <div id="items-table-container">
+            <table id="items-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Item Name</th>
+                        <th>Store Name</th>
+                        <th style="text-align: right;">Price</th>
+                    </tr>
+                </thead>
+                <tbody id="items-table-body">
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div class="card" id="empty-card">
-        <p>Loading stores...</p>
+        <p style="margin:0; color: var(--text-muted);">Loading stores...</p>
     </div>
 
     <script>
         let chart = null;
+        let currentChartData = null;
+        let selectedMonth = null;
+        let fetchedItems = [];
 
         async function init() {
-            const res = await fetch('/expenses/stores');
-            const stores = await res.json();
-            const select = document.getElementById('store-select');
-            select.innerHTML = '';
-            stores.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.store_key;
-                opt.textContent = s.store_name;
-                opt.selected = true;
-                select.appendChild(opt);
-            });
-            if (stores.length === 0) {
-                document.getElementById('empty-card').innerHTML = '<p>No stores with processed receipts yet.</p>';
-                return;
+            try {
+                const res = await fetch('/expenses/stores');
+                const stores = await res.json();
+                const select = document.getElementById('store-select');
+                select.innerHTML = '';
+                stores.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.store_key;
+                    opt.textContent = s.store_name;
+                    opt.selected = true;
+                    select.appendChild(opt);
+                });
+                if (stores.length === 0) {
+                    document.getElementById('empty-card').innerHTML = '<p style="margin:0; color: var(--text-muted);">No stores with processed receipts yet.</p>';
+                    return;
+                }
+                loadData();
+            } catch (err) {
+                console.error("Failed to load stores:", err);
+                document.getElementById('empty-card').innerHTML = '<p style="margin:0; color: #dc2626;">Failed to load stores.</p>';
             }
-            loadData();
         }
 
         function selectAll() {
@@ -77,15 +443,27 @@
             loadData();
         }
 
-        async function loadData() {
+        function deselectAll() {
             const select = document.getElementById('store-select');
-            const selected = Array.from(select.selectedOptions).map(o => o.value);
+            Array.from(select.options).forEach(o => o.selected = false);
+            loadData();
+        }
+
+        function getSelectedStores() {
+            const select = document.getElementById('store-select');
+            return Array.from(select.selectedOptions).map(o => o.value);
+        }
+
+        async function loadData() {
+            const selected = getSelectedStores();
 
             if (selected.length === 0) {
                 document.getElementById('chart-card').style.display = 'none';
                 document.getElementById('stats-card').style.display = 'none';
+                document.getElementById('items-card').style.display = 'none';
                 document.getElementById('empty-card').style.display = 'block';
-                document.getElementById('empty-card').innerHTML = '<p>Select at least one store above.</p>';
+                document.getElementById('empty-card').innerHTML = '<p style="margin:0; color: var(--text-muted);">Select at least one store above to view expenses.</p>';
+                selectedMonth = null;
                 return;
             }
 
@@ -93,12 +471,15 @@
             selected.forEach(s => params.append('store', s));
             const res = await fetch('/expenses/data?' + params.toString());
             const data = await res.json();
+            currentChartData = data;
 
             if (data.labels.length === 0) {
                 document.getElementById('chart-card').style.display = 'none';
                 document.getElementById('stats-card').style.display = 'none';
+                document.getElementById('items-card').style.display = 'none';
                 document.getElementById('empty-card').style.display = 'block';
-                document.getElementById('empty-card').innerHTML = '<p>No dated receipts found for the selected store(s).</p>';
+                document.getElementById('empty-card').innerHTML = '<p style="margin:0; color: var(--text-muted);">No dated receipts found for the selected store(s).</p>';
+                selectedMonth = null;
                 return;
             }
 
@@ -109,8 +490,25 @@
             document.getElementById('stat-months').textContent = data.month_count;
             document.getElementById('stat-avg').textContent = '$' + data.avg_monthly.toFixed(2);
 
+            renderChart(data);
+
+            // If a month was previously selected and is still valid, refresh its items
+            if (selectedMonth && data.labels.includes(selectedMonth)) {
+                loadMonthItems(selectedMonth);
+            } else {
+                document.getElementById('items-card').style.display = 'none';
+                selectedMonth = null;
+            }
+        }
+
+        function renderChart(data) {
             const ctx = document.getElementById('expenseChart').getContext('2d');
             if (chart) chart.destroy();
+
+            // Set background colors for bars, highlighting the selected month if set
+            const bgColors = data.labels.map(l => (l === selectedMonth ? '#991b1b' : '#dc2626'));
+            const hoverColors = data.labels.map(l => (l === selectedMonth ? '#7f1d1d' : '#b91c1c'));
+
             chart = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -118,13 +516,177 @@
                     datasets: [{
                         label: 'Monthly spend ($)',
                         data: data.totals,
-                        backgroundColor: '#e01b22',
+                        backgroundColor: bgColors,
+                        hoverBackgroundColor: hoverColors,
+                        borderRadius: 6,
+                        borderSkipped: false,
                     }]
                 },
                 options: {
-                    scales: { y: { beginAtZero: true } }
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (event, activeElements) => {
+                        if (activeElements && activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const month = currentChartData.labels[index];
+                            selectMonth(month);
+                        }
+                    },
+                    onHover: (event, chartElement) => {
+                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `Spend: $${context.parsed.y.toFixed(2)} (Click to view items)`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                callback: (value) => '$' + value,
+                                font: { family: 'Outfit' }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { family: 'Outfit' } }
+                        }
+                    }
                 }
             });
+        }
+
+        function selectMonth(month) {
+            selectedMonth = month;
+            // Update chart colors
+            if (chart && currentChartData) {
+                chart.data.datasets[0].backgroundColor = currentChartData.labels.map(l => (l === selectedMonth ? '#991b1b' : '#dc2626'));
+                chart.data.datasets[0].hoverBackgroundColor = currentChartData.labels.map(l => (l === selectedMonth ? '#7f1d1d' : '#b91c1c'));
+                chart.update();
+            }
+            loadMonthItems(month);
+        }
+
+        function formatMonthLabel(monthStr) {
+            const [y, m] = monthStr.split('-');
+            const date = new Date(parseInt(y), parseInt(m) - 1, 1);
+            return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
+
+        async function loadMonthItems(month) {
+            const card = document.getElementById('items-card');
+            const cardTitle = document.getElementById('items-card-title');
+            const cardBadge = document.getElementById('items-card-badge');
+            const cardMeta = document.getElementById('items-card-meta');
+            const loading = document.getElementById('items-loading');
+            const tableContainer = document.getElementById('items-table-container');
+            const tbody = document.getElementById('items-table-body');
+            const searchInput = document.getElementById('item-search');
+
+            card.style.display = 'block';
+            cardTitle.textContent = `Underlying Items for ${formatMonthLabel(month)} (${month})`;
+            cardBadge.textContent = 'Loading...';
+            cardMeta.style.display = 'none';
+            loading.style.display = 'block';
+            tableContainer.style.display = 'none';
+            searchInput.value = '';
+
+            // Scroll down to the items card smoothly
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            const selected = getSelectedStores();
+            const params = new URLSearchParams();
+            params.append('month', month);
+            selected.forEach(s => params.append('store', s));
+
+            try {
+                const res = await fetch('/expenses/month-items?' + params.toString());
+                const data = await res.json();
+                fetchedItems = data.items || [];
+
+                loading.style.display = 'none';
+                tableContainer.style.display = 'block';
+                cardBadge.textContent = `${data.total_items} items • $${data.total_spend.toFixed(2)}`;
+                cardMeta.style.display = 'block';
+                cardMeta.innerHTML = `Showing <b>${data.total_items} items</b> totaling <b>$${data.total_spend.toFixed(2)}</b> for <b>${formatMonthLabel(month)}</b>.`;
+
+                renderItemsTable(fetchedItems);
+            } catch (err) {
+                console.error("Failed to load month items:", err);
+                loading.style.display = 'none';
+                cardBadge.textContent = 'Error';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#dc2626;">Failed to load items for this month.</td></tr>';
+                tableContainer.style.display = 'block';
+            }
+        }
+
+        function renderItemsTable(items) {
+            const tbody = document.getElementById('items-table-body');
+            tbody.innerHTML = '';
+
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">No underlying items found for this month.</td></tr>';
+                return;
+            }
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+
+                // Date
+                const tdDate = document.createElement('td');
+                tdDate.className = 'date-cell';
+                tdDate.textContent = item.date;
+
+                // Item Name
+                const tdName = document.createElement('td');
+                tdName.style.fontWeight = '500';
+                tdName.textContent = item.item_name;
+
+                // Store Name
+                const tdStore = document.createElement('td');
+                tdStore.textContent = item.store_name;
+
+                // Price
+                const tdPrice = document.createElement('td');
+                tdPrice.style.textAlign = 'right';
+                const mainPrice = document.createElement('span');
+                mainPrice.className = 'item-price';
+                mainPrice.textContent = '$' + item.price.toFixed(2);
+                tdPrice.appendChild(mainPrice);
+
+                if (item.quantity > 1 && item.unit_price) {
+                    const qtySub = document.createElement('span');
+                    qtySub.className = 'qty-subtext';
+                    qtySub.textContent = `($${item.unit_price.toFixed(2)} ea × ${item.quantity})`;
+                    tdPrice.appendChild(qtySub);
+                }
+
+                tr.appendChild(tdDate);
+                tr.appendChild(tdName);
+                tr.appendChild(tdStore);
+                tr.appendChild(tdPrice);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterItemsTable() {
+            const query = document.getElementById('item-search').value.toLowerCase().trim();
+            if (!query) {
+                renderItemsTable(fetchedItems);
+                return;
+            }
+            const filtered = fetchedItems.filter(item => 
+                item.item_name.toLowerCase().includes(query) ||
+                item.store_name.toLowerCase().includes(query) ||
+                item.date.toLowerCase().includes(query) ||
+                item.price.toFixed(2).includes(query)
+            );
+            renderItemsTable(filtered);
         }
 
         init();
