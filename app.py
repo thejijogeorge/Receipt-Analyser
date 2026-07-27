@@ -587,5 +587,366 @@ def expenses_data():
     })
 
 
+
+# ==============================================================================
+# REST API V1 ENDPOINTS (FOR MOBILE ANDROID APP & EXTERNAL INTEGRATIONS)
+# ==============================================================================
+
+@app.route("/api/v1/health", methods=["GET"])
+def api_health():
+    """Health check endpoint for Android app to verify server reachability."""
+    return jsonify({
+        "status": "ok",
+        "service": "Receipt Analyser API",
+        "version": "1.0.0",
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+
+@app.route("/api/v1/stores", methods=["GET"])
+def api_stores():
+    """Return list of all recognized stores with key and display name."""
+    session = get_session()
+    stores = (
+        session.query(Receipt.store_key, Receipt.store_name)
+        .filter(Receipt.store_name.isnot(None))
+        .distinct()
+        .order_by(Receipt.store_name)
+        .all()
+    )
+    session.close()
+    return jsonify([{"store_key": k, "store_name": n} for k, n in stores])
+
+
+@app.route("/api/v1/process", methods=["POST"])
+def api_process():
+    """Process receipts in target folder and return JSON response."""
+    data = request.get_json(silent=True) or {}
+    folder = data.get("folder") or request.form.get("folder") or os.environ.get("RECEIPTS_FOLDER", "/receipts")
+    results, items_to_name, stores_to_name, giftcards_to_confirm = process_folder(folder)
+    return jsonify({
+        "status": "success",
+        "results": results,
+        "items_to_name": items_to_name,
+        "stores_to_name": stores_to_name,
+        "giftcards_to_confirm": giftcards_to_confirm
+    })
+
+
+@app.route("/api/v1/upload", methods=["POST"])
+def api_upload():
+    """Upload and process single/multiple receipt files directly from phone camera/picker."""
+    files = request.files.getlist("file") or request.files.getlist("files")
+    if not files or files[0].filename == "":
+        return jsonify({"status": "error", "message": "No file provided in request"}), 400
+
+    save_folder = os.environ.get("RECEIPTS_FOLDER", "/receipts")
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder, exist_ok=True)
+
+    saved_filenames = []
+    for file in files:
+        if file and file.filename:
+            filename = os.path.basename(file.filename)
+            filepath = os.path.join(save_folder, filename)
+            file.save(filepath)
+            saved_filenames.append(filename)
+
+    results, items_to_name, stores_to_name, giftcards_to_confirm = process_folder(save_folder)
+    
+    # Filter results to include uploaded files
+    uploaded_results = [r for r in results if r.get("filename") in saved_filenames] if saved_filenames else results
+
+    return jsonify({
+        "status": "success",
+        "saved_files": saved_filenames,
+        "results": uploaded_results,
+        "items_to_name": items_to_name,
+        "stores_to_name": stores_to_name,
+        "giftcards_to_confirm": giftcards_to_confirm
+    })
+
+
+@app.route("/api/v1/sync-drive", methods=["POST"])
+def api_sync_drive():
+    """Trigger Google Drive rclone sync and process new files, returning JSON status."""
+    remote = os.environ.get("RCLONE_REMOTE")
+    local_folder = os.environ.get("RECEIPTS_FOLDER", "/receipts")
+
+    if not remote:
+        return jsonify({"status": "error", "message": "RCLONE_REMOTE not configured"}), 400
+
+    try:
+        proc = subprocess.run(
+            ["rclone", "sync", remote, local_folder],
+            capture_output=True, text=True, timeout=300,
+        )
+        if proc.returncode != 0:
+            return jsonify({"status": "error", "message": f"rclone sync failed: {proc.stderr.strip()[:300]}"}), 500
+    except FileNotFoundError:
+        return jsonify({"status": "error", "message": "rclone is not installed in this container"}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({"status": "error", "message": "rclone sync timed out"}), 504
+
+    results, items_to_name, stores_to_name, giftcards_to_confirm = process_folder(local_folder)
+    return jsonify({
+        "status": "success",
+        "results": results,
+        "items_to_name": items_to_name,
+        "stores_to_name": stores_to_name,
+        "giftcards_to_confirm": giftcards_to_confirm
+    })
+
+
+@app.route("/api/v1/save-names", methods=["POST"])
+def api_save_names():
+    """Save clean item names. Accepts JSON body e.g. {"items": [{"id": 1, "real_name": "Milk"}]}."""
+    data = request.get_json(silent=True) or {}
+    items_data = data.get("items", [])
+    
+    # Fallback to form data if sending form parameters
+    if not items_data:
+        item_ids = request.form.getlist("item_id")
+        items_data = [{"id": i, "real_name": request.form.get(f"real_name_{i}", "")} for i in item_ids]
+
+    session = get_session()
+    updated_count = 0
+
+    for entry in items_data:
+        item_id = entry.get("id")
+        real_name = str(entry.get("real_name", "")).strip()
+        if not item_id:
+            continue
+        item = session.get(ReceiptItem, int(item_id))
+        if not item:
+            continue
+        final_name = real_name if real_name else item.item_name
+        session.query(ReceiptItem).filter(
+            ReceiptItem.item_name == item.item_name
+        ).update({"real_name": final_name}, synchronize_session=False)
+        updated_count += 1
+
+    session.commit()
+    session.close()
+    return jsonify({"status": "success", "updated_count": updated_count})
+
+
+@app.route("/api/v1/save-store-names", methods=["POST"])
+def api_save_store_names():
+    """Save custom store display names. Accepts JSON body e.g. {"stores": [{"store_key": "kmart", "store_name": "Kmart Australia"}]}."""
+    data = request.get_json(silent=True) or {}
+    stores_data = data.get("stores", [])
+
+    if not stores_data:
+        store_keys = request.form.getlist("store_key")
+        stores_data = [{
+            "store_key": sk,
+            "store_name": request.form.get(f"store_name_{sk}", ""),
+            "detected_name": request.form.get(f"detected_name_{sk}", "")
+        } for sk in store_keys]
+
+    session = get_session()
+    updated_count = 0
+
+    for entry in stores_data:
+        store_key = entry.get("store_key")
+        if not store_key:
+            continue
+        custom_name = str(entry.get("store_name", "")).strip()
+        detected_name = str(entry.get("detected_name", "")).strip()
+        final_name = custom_name if custom_name else (detected_name or store_key)
+
+        session.query(Receipt).filter(
+            Receipt.store_key == store_key
+        ).update({"store_name": final_name}, synchronize_session=False)
+        updated_count += 1
+
+    session.commit()
+    session.close()
+    return jsonify({"status": "success", "updated_count": updated_count})
+
+
+@app.route("/api/v1/confirm-giftcard-initial", methods=["POST"])
+def api_confirm_giftcard_initial():
+    """Set starting balance for unconfirmed gift cards. Accepts JSON e.g. {"cards": [{"id": 1, "initial_amount": 50.0}]}."""
+    data = request.get_json(silent=True) or {}
+    cards_data = data.get("cards", [])
+
+    if not cards_data:
+        # Check single object or form fallback
+        if "id" in data or "gift_card_id" in data:
+            cards_data = [data]
+        else:
+            card_ids = request.form.getlist("gift_card_id")
+            cards_data = [{"id": cid, "initial_amount": request.form.get(f"initial_amount_{cid}")} for cid in card_ids]
+
+    session = get_session()
+    updated_count = 0
+
+    for entry in cards_data:
+        cid = entry.get("id") or entry.get("gift_card_id")
+        raw_amount = entry.get("initial_amount")
+        if cid is None or raw_amount is None:
+            continue
+        try:
+            initial_amount = float(raw_amount)
+        except (ValueError, TypeError):
+            continue
+
+        card = session.get(GiftCard, int(cid))
+        if card:
+            card.balance = round(initial_amount - (card.amount_redeemed or 0), 2)
+            updated_count += 1
+
+    session.commit()
+    session.close()
+    return jsonify({"status": "success", "updated_count": updated_count})
+
+
+@app.route("/api/v1/giftcards/<store_key>", methods=["GET"])
+def api_giftcards(store_key):
+    """Return JSON list of gift cards and balances for store."""
+    session = get_session()
+    receipt = session.query(Receipt).filter_by(store_key=store_key).first()
+    store_name = receipt.store_name if receipt else store_key
+
+    q = session.query(GiftCard).filter(GiftCard.store_key == store_key)
+
+    filter_val = request.args.get("last_four", "").strip()
+    if filter_val:
+        q = q.filter(GiftCard.last_four.like(f"%{filter_val}%"))
+
+    status_filter = request.args.get("status", "all").strip()
+    if status_filter == "has_balance":
+        q = q.filter(GiftCard.balance > 0)
+    elif status_filter == "no_balance":
+        q = q.filter((GiftCard.balance <= 0) | (GiftCard.balance.is_(None)))
+
+    sort_by = request.args.get("sort_by", "last_four").strip()
+    sort_dir = request.args.get("sort_dir", "asc").strip()
+
+    sort_columns = {
+        "last_four": GiftCard.last_four,
+        "balance": GiftCard.balance,
+        "amount_redeemed": GiftCard.amount_redeemed,
+        "last_receipt_filename": GiftCard.last_receipt_filename,
+        "updated_at": GiftCard.updated_at
+    }
+
+    col = sort_columns.get(sort_by, GiftCard.last_four)
+    if sort_dir == "desc":
+        q = q.order_by(col.desc())
+    else:
+        q = q.order_by(col.asc())
+
+    cards = q.all()
+    result = [{
+        "id": c.id,
+        "last_four": c.last_four,
+        "balance": c.balance,
+        "amount_redeemed": c.amount_redeemed,
+        "last_receipt_filename": c.last_receipt_filename,
+        "store_key": c.store_key,
+        "updated_at": c.updated_at.isoformat() if c.updated_at else None
+    } for c in cards]
+
+    session.close()
+    return jsonify({
+        "store_key": store_key,
+        "store_name": store_name,
+        "cards": result
+    })
+
+
+@app.route("/api/v1/giftcard/<int:card_id>/deductions", methods=["GET"])
+def api_giftcard_deductions(card_id):
+    """Return JSON deduction history timeline for a gift card."""
+    session = get_session()
+    card = session.get(GiftCard, card_id)
+    if not card:
+        session.close()
+        return jsonify({"status": "error", "message": "Gift card not found"}), 404
+
+    receipt = session.query(Receipt).filter_by(store_key=card.store_key).first()
+    store_name = receipt.store_name if receipt else card.store_key
+
+    deductions = (
+        session.query(GiftCardDeduction)
+        .filter(GiftCardDeduction.gift_card_id == card_id)
+        .join(Receipt, GiftCardDeduction.receipt_id == Receipt.id)
+        .order_by(Receipt.receipt_date.asc())
+        .all()
+    )
+
+    computed_deductions = []
+    if card.balance is not None:
+        total_redeemed = sum(d.amount_redeemed for d in deductions if d.amount_redeemed)
+        running_bal = round(card.balance + total_redeemed, 2)
+    else:
+        running_bal = None
+
+    for d in deductions:
+        if d.balance is not None:
+            display_bal = d.balance
+            running_bal = d.balance
+        elif running_bal is not None:
+            running_bal = round(running_bal - d.amount_redeemed, 2)
+            display_bal = running_bal
+        else:
+            display_bal = None
+
+        computed_deductions.append({
+            "date": d.receipt.receipt_date.isoformat() if d.receipt.receipt_date else None,
+            "filename": d.receipt.filename,
+            "amount_redeemed": d.amount_redeemed,
+            "balance_after": display_bal
+        })
+
+    computed_deductions.reverse()
+    session.close()
+
+    return jsonify({
+        "card": {
+            "id": card.id,
+            "last_four": card.last_four,
+            "balance": card.balance,
+            "amount_redeemed": card.amount_redeemed,
+            "store_key": card.store_key,
+            "store_name": store_name
+        },
+        "deductions": computed_deductions
+    })
+
+
+@app.route("/api/v1/receipts", methods=["GET"])
+def api_receipts():
+    """Return JSON list of recent receipts."""
+    limit = request.args.get("limit", 50, type=int)
+    session = get_session()
+    receipts = (
+        session.query(Receipt)
+        .order_by(Receipt.processed_at.desc())
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for r in receipts:
+        total_cost = sum(i.line_total or 0 for i in r.items)
+        result.append({
+            "id": r.id,
+            "filename": r.filename,
+            "receipt_date": r.receipt_date.isoformat() if r.receipt_date else None,
+            "store_key": r.store_key,
+            "store_name": r.store_name,
+            "store_location": r.store,
+            "item_count": len(r.items),
+            "total_cost": round(total_cost, 2),
+            "processed_at": r.processed_at.isoformat() if r.processed_at else None
+        })
+    session.close()
+    return jsonify(result)
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
+
