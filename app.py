@@ -363,6 +363,16 @@ def analytics_data(store_key):
     session = get_session()
     display_name = func.coalesce(ReceiptItem.real_name, ReceiptItem.item_name)
 
+    if not selected_items:
+        item_rows = (
+            session.query(display_name)
+            .join(Receipt, ReceiptItem.receipt_id == Receipt.id)
+            .filter(Receipt.store_key == store_key)
+            .distinct()
+            .all()
+        )
+        selected_items = [r[0] for r in item_rows if r[0]]
+
     track_col = ReceiptItem.unit_price if track_mode == "unit_price" else ReceiptItem.line_total
 
     per_item = {}

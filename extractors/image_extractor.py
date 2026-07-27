@@ -1,27 +1,35 @@
 import pytesseract
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFilter
 
 
 def extract_text(file_path):
     """OCR a photographed/scanned receipt image. Photos of receipts (as
     opposed to clean digital PDFs) tend to have low contrast, small text,
-    and slight skew/crumpling, so we preprocess before handing off to
-    tesseract: grayscale, upscale, boost contrast, then binarize. This
-    noticeably improves accuracy on real phone-camera receipt photos
-    versus running OCR on the raw image.
+    slight skew/crumpling, and uneven shadows.
+
+    We preprocess using background normalization (subtracting blurred
+    lighting gradient) to neutralize phone/hand shadows, followed by
+    autocontrast. If binarized OCR produces insufficient text, we fall back
+    to grayscale OCR so Tesseract can apply its internal adaptive binarization.
     """
     img = Image.open(file_path)
 
     gray = ImageOps.grayscale(img)
-
-    # upscale -- tesseract does much better with larger text
     w, h = gray.size
     gray = gray.resize((w * 2, h * 2), Image.LANCZOS)
-
     gray = ImageOps.autocontrast(gray)
 
-    # binarize (simple fixed threshold works well for receipt paper)
-    bw = gray.point(lambda x: 0 if x < 150 else 255, "1")
+    # Estimate background lighting/shadows using Gaussian blur
+    bg = gray.filter(ImageFilter.GaussianBlur(radius=30))
+    # Subtract background gradient to normalize lighting across shadows
+    normalized = ImageOps.autocontrast(ImageOps.invert(ImageOps.difference(gray, bg)))
 
-    # psm 6: assume a single uniform block of text -- suits receipt layout
-    return pytesseract.image_to_string(bw, config="--psm 6")
+    # Try normalized image first (neutralizes shadows)
+    text = pytesseract.image_to_string(normalized, config="--psm 6")
+
+    # Fallback to direct grayscale (lets Tesseract apply its internal Otsu thresholding)
+    if not text.strip() or len(text.strip()) < 30:
+        text = pytesseract.image_to_string(gray, config="--psm 6")
+
+    return text
+
