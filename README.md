@@ -3,7 +3,7 @@
 Parses receipts (PDF and photographed/scanned images) from multiple stores
 -- Coles, Woolworths, JB Hi-Fi, Kmart, Ambeys, and any new store you add --
 and saves items, prices, dates, and gift card balances into a database.
-Includes per-store item price analytics and gift card balance tracking.
+Includes per-store item price analytics, monthly spending graphs with itemized purchase breakdowns, gift card balance tracking, and a REST API for the Android companion app.
 
 By default the project connects to an external SQL Server database. If
 you'd rather not manage a separate SQL Server instance, see **Section 2**
@@ -278,16 +278,33 @@ http://<server_ip>:5050
   doesn't recognize still gets saved (with no items, since guessing at an
   unknown format risks bad data) and shows up here for naming. The name
   applies to every receipt sharing that same detected store.
+- **Monthly Expenses & Graph Item Breakdown (`/expenses`)**: view total spending across all stores over time with an interactive graph. Filter by one or multiple stores, track monthly averages, and **click any bar in the monthly graph to reveal an itemized breakdown** of every product bought in that month (showing store name, purchase date, item name, unit price, quantity, and line total).
 - **Item Analytics and Gift Cards are per-store**: from the home page,
   each confirmed store links to its own `/analytics/<store_key>` and
   `/giftcards/<store_key>` pages.
+- **REST API (`/api/v1/*`)**: exposes JSON endpoints for mobile and headless integration, including `/api/v1/health`, `/api/v1/stores`, `/api/v1/process`, `/api/v1/upload` (direct receipt photo/scan uploads), `/api/v1/sync-drive`, `/api/v1/receipts`, `/api/v1/giftcards/<store_key>`, `/api/v1/giftcard/<id>/deductions`, `/api/v1/save-names`, `/api/v1/save-store-names`, and `/api/v1/confirm-giftcard-initial`.
 
 Re-running Process or Sync on the same files is safe — already-processed
 receipts (matched by filename) are skipped, not duplicated.
 
 ---
 
-## 6. Updating the app after code changes
+## 6. Companion Android App
+
+The project repository includes a companion Android mobile application source under the `companion_app/` folder.
+
+> [!IMPORTANT]
+> **Companion Client Only (Not Standalone)**: The Android app is designed to run purely as a **companion client** to this Receipt Analyser server backend. It requires an active connection to your self-hosted server (via local Wi-Fi or reverse proxy) to perform receipt OCR, database storage, and expense analytics.
+
+### Key Companion App Features:
+- **Mobile Camera Upload**: Snap photos of paper receipts or select receipt PDFs on your mobile device and upload them directly via `/api/v1/upload`.
+- **On-the-Go Analytics & Breakdown**: View monthly spending graphs and inspect detailed itemized purchase breakdowns for any selected month.
+- **Gift Card Tracker**: Check gift card balances and trace deduction histories for Woolworths, Coles, Kmart, etc.
+- **Remote Controls**: Trigger Google Drive sync and manage item/store name confirmations right from your phone.
+
+---
+
+## 7. Updating the app after code changes
 
 ```bash
 docker compose down
@@ -299,7 +316,7 @@ DB schema changes apply themselves — no manual SQL needed.
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Likely cause |
 |---|---|
@@ -318,11 +335,11 @@ DB schema changes apply themselves — no manual SQL needed.
 
 ---
 
-## 8. Project structure
+## 9. Project structure
 
 ```
 receipt_analyser/
-├── app.py                    # Flask routes (process, sync, analytics, gift cards)
+├── app.py                    # Flask routes (process, sync, analytics, expenses, gift cards, REST API v1)
 ├── models.py                 # SQLAlchemy models
 ├── extractors/                # raw text extraction, by file type
 │   ├── pdf_extractor.py        # pdfplumber
@@ -335,8 +352,9 @@ receipt_analyser/
 │   ├── ambeys.py
 │   ├── unknown.py              # fallback for unrecognized store formats
 │   └── utils.py                 # shared helpers (e.g. dash-delimited block splitting)
+├── companion_app/             # Companion Android mobile app source code (runs in companion mode)
 ├── alembic/                    # DB migrations
-├── templates/                   # HTML/HTMX pages
+├── templates/                   # HTML/HTMX pages (analytics, gift cards, expenses dashboard with item breakdown)
 ├── With Postgres/                # drop-in replacements for a Dockerized Postgres DB
 │   ├── Dockerfile                  # instead of the SQL Server ODBC setup
 │   ├── docker-compose.yml           # adds a "db" (Postgres) service
