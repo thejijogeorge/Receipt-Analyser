@@ -1,5 +1,5 @@
 import pytesseract
-from PIL import Image, ImageOps, ImageFilter
+from PIL import Image, ImageOps, ImageFilter, ImageChops
 
 
 def extract_text(file_path):
@@ -22,7 +22,7 @@ def extract_text(file_path):
     # Estimate background lighting/shadows using Gaussian blur
     bg = gray.filter(ImageFilter.GaussianBlur(radius=30))
     # Subtract background gradient to normalize lighting across shadows
-    normalized = ImageOps.autocontrast(ImageOps.invert(ImageOps.difference(gray, bg)))
+    normalized = ImageOps.autocontrast(ImageOps.invert(ImageChops.difference(gray, bg)))
 
     # Try normalized image first (neutralizes shadows)
     text = pytesseract.image_to_string(normalized, config="--psm 6")
