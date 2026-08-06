@@ -1,0 +1,25 @@
+# Ignore receipts directory
+receipts/
+
+# Ignore Python cache and environment
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# Ignore git and local environment files
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Ignore IDE files
+.idea/
+.vscode/
+
+# Ignore OS metadata
+.DS_Store
+Thumbs.db
